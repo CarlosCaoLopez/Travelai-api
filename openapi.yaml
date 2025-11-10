@@ -1,0 +1,661 @@
+openapi: 3.1.0
+info:
+  title: TravelAI API
+  description: |
+    API backend para TravelAI - Sistema de gestión de pagos y suscripciones para viajes.
+
+    ## Autenticación
+
+    La mayoría de los endpoints requieren autenticación mediante JWT de Supabase.
+    Los tokens deben enviarse en el header `Authorization` con el formato: `Bearer <token>`
+
+    ## Planes Disponibles
+
+    - **Travel Pass**: Pago único de €4.99
+    - **Monthly**: Suscripción mensual (precio definido en Stripe)
+    - **Annual**: Suscripción anual (precio definido en Stripe)
+
+    ## Estados de Suscripción
+
+    - `active`: Suscripción activa y válida
+    - `expired`: Suscripción expirada
+    - `canceled`: Suscripción cancelada
+    - `past_due`: Pago atrasado
+    - `incomplete`: Pago pendiente de completar
+    - `none`: Sin suscripción
+
+  version: 1.0.0
+  contact:
+    name: TravelAI Support
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:3000
+    description: Development server
+  - url: https://api.travelai.com
+    description: Production server
+
+tags:
+  - name: Health
+    description: Health check endpoints
+  - name: Payments
+    description: Endpoints de gestión de pagos y suscripciones (requieren autenticación)
+  - name: Webhooks
+    description: Endpoints para webhooks de terceros (Stripe)
+
+paths:
+  /:
+    get:
+      tags:
+        - Health
+      summary: Health check endpoint
+      description: Retorna un mensaje simple para verificar que la API está funcionando
+      operationId: getHello
+      responses:
+        '200':
+          description: API funcionando correctamente
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Hello World!
+
+  /api/payments/create-intent:
+    post:
+      tags:
+        - Payments
+      summary: Crear Payment Intent para Travel Pass
+      description: |
+        Crea un Payment Intent de Stripe para el plan Travel Pass (€4.99 pago único).
+        Este endpoint requiere autenticación con token JWT de Supabase.
+
+        El Payment Intent generado se utiliza para completar el pago desde el cliente móvil.
+      operationId: createPaymentIntent
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePaymentIntentDto'
+            examples:
+              travelPass:
+                summary: Crear Payment Intent para Travel Pass
+                value:
+                  planId: travel_pass
+                  currency: eur
+      responses:
+        '200':
+          description: Payment Intent creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentSheetResponseDto'
+              examples:
+                success:
+                  summary: Respuesta exitosa
+                  value:
+                    paymentIntent: pi_3ABC123def456_secret_xyz789
+                    ephemeralKey: ek_test_abc123def456
+                    customer: cus_ABC123DEF456
+                    publishableKey: pk_test_51ABC123DEF456
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/payments/subscription/status:
+    get:
+      tags:
+        - Payments
+      summary: Obtener estado de suscripción del usuario
+      description: |
+        Retorna el estado actual de la suscripción del usuario autenticado.
+        Incluye información sobre el plan, estado, fecha de expiración y si está activa.
+
+        Automáticamente actualiza suscripciones expiradas en la base de datos.
+      operationId: getSubscriptionStatus
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Estado de suscripción obtenido exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionStatusResponseDto'
+              examples:
+                activeSubscription:
+                  summary: Suscripción activa
+                  value:
+                    plan: monthly
+                    status: active
+                    expiryDate: '2025-12-08T10:30:00.000Z'
+                    isSubscribed: true
+                noSubscription:
+                  summary: Sin suscripción
+                  value:
+                    plan: null
+                    status: none
+                    isSubscribed: false
+                expiredSubscription:
+                  summary: Suscripción expirada
+                  value:
+                    plan: annual
+                    status: expired
+                    expiryDate: '2025-10-08T10:30:00.000Z'
+                    isSubscribed: false
+                pastDue:
+                  summary: Pago atrasado
+                  value:
+                    plan: monthly
+                    status: past_due
+                    expiryDate: '2025-11-15T10:30:00.000Z'
+                    isSubscribed: false
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/payments/setup-intent:
+    post:
+      tags:
+        - Payments
+      summary: Crear SetupIntent para suscripción (Paso 1 de 2)
+      description: |
+        Crea un SetupIntent de Stripe para recopilar un método de pago sin realizar un cargo inmediato.
+        Este es el **primer paso** del flujo de suscripción de 2 pasos.
+
+        **Flujo de suscripción:**
+        1. **Paso 1**: Cliente llama a este endpoint para obtener un SetupIntent
+        2. Cliente recopila método de pago usando Stripe SDK y el `client_secret` del SetupIntent
+        3. Cliente confirma el SetupIntent, obteniendo un `payment_method_id`
+        4. **Paso 2**: Cliente llama a `/api/payments/create-subscription-with-payment-method` con el `payment_method_id`
+
+        Este endpoint requiere autenticación con token JWT de Supabase.
+      operationId: createSetupIntent
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSetupIntentDto'
+            examples:
+              monthlyPlan:
+                summary: SetupIntent para plan mensual
+                value:
+                  planId: monthly
+              annualPlan:
+                summary: SetupIntent para plan anual
+                value:
+                  planId: annual
+      responses:
+        '200':
+          description: SetupIntent creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetupIntentResponseDto'
+              examples:
+                success:
+                  summary: Respuesta exitosa
+                  value:
+                    setupIntent: seti_1ABC123def456_secret_xyz789
+                    ephemeralKey: ek_test_abc123def456
+                    customer: cus_ABC123DEF456
+                    publishableKey: pk_test_51ABC123DEF456
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/payments/create-subscription-with-payment-method:
+    post:
+      tags:
+        - Payments
+      summary: Crear suscripción con método de pago guardado (Paso 2 de 2)
+      description: |
+        Crea una suscripción activa usando un método de pago previamente guardado mediante SetupIntent.
+        Este es el **segundo paso** del flujo de suscripción de 2 pasos.
+
+        **Requisitos previos:**
+        1. Debes haber completado el flujo de SetupIntent llamando a `/api/payments/setup-intent`
+        2. El cliente debe haber confirmado el SetupIntent usando Stripe SDK (Payment Sheet)
+
+        **Dos formas de usar este endpoint:**
+
+        **Opción A (Recomendado para Payment Sheet):**
+        - Solo envía `planId` en el request body
+        - El backend usará automáticamente el método de pago predeterminado del cliente
+        - Más simple y sigue el patrón recomendado de Stripe
+
+        **Opción B (Explícito):**
+        - Envía tanto `planId` como `paymentMethodId`
+        - Útil si el cliente tiene múltiples métodos de pago
+        - El backend validará que el método de pago pertenezca al cliente
+
+        **Proceso:**
+        - Crea una suscripción activa en Stripe
+        - Registra la suscripción en la base de datos
+        - Retorna información sobre la suscripción creada
+
+        **Planes disponibles:**
+        - `monthly`: Suscripción mensual
+        - `annual`: Suscripción anual
+
+        Este endpoint requiere autenticación con token JWT de Supabase.
+      operationId: createSubscriptionWithPaymentMethod
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSubscriptionWithPaymentMethodDto'
+            examples:
+              monthlySubscriptionWithSetupIntent:
+                summary: Crear suscripción mensual desde SetupIntent (recomendado)
+                value:
+                  planId: monthly
+                  setupIntentId: seti_1ABC123DEF456
+              monthlySubscriptionAutomatic:
+                summary: Crear suscripción mensual (método de pago automático)
+                value:
+                  planId: monthly
+              annualSubscriptionWithSetupIntent:
+                summary: Crear suscripción anual desde SetupIntent
+                value:
+                  planId: annual
+                  setupIntentId: seti_1XYZ789GHI012
+      responses:
+        '200':
+          description: Suscripción creada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateSubscriptionResponseDto'
+              examples:
+                monthlySuccess:
+                  summary: Suscripción mensual creada
+                  value:
+                    subscriptionId: sub_1ABC123DEF456
+                    status: active
+                    currentPeriodEnd: '2025-12-08T10:30:00.000Z'
+                annualSuccess:
+                  summary: Suscripción anual creada
+                  value:
+                    subscriptionId: sub_1XYZ789GHI012
+                    status: active
+                    currentPeriodEnd: '2026-11-08T10:30:00.000Z'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /webhooks/stripe:
+    post:
+      tags:
+        - Webhooks
+      summary: Webhook de eventos de Stripe
+      description: |
+        Endpoint para recibir eventos de Stripe mediante webhooks.
+
+        **Eventos soportados:**
+        - `payment_intent.succeeded` - Pago exitoso
+        - `payment_intent.payment_failed` - Pago fallido
+        - `payment_intent.canceled` - Pago cancelado
+        - `customer.subscription.created` - Suscripción creada
+        - `customer.subscription.updated` - Suscripción actualizada
+        - `customer.subscription.deleted` - Suscripción eliminada
+        - `invoice.paid` - Factura pagada (renovación de suscripción)
+        - `invoice.payment_failed` - Fallo en pago de factura
+
+        **Seguridad:**
+        Este endpoint verifica la firma del webhook usando el header `stripe-signature`
+        y el secret configurado en `STRIPE_WEBHOOK_SECRET`.
+      operationId: handleStripeWebhook
+      parameters:
+        - name: stripe-signature
+          in: header
+          required: true
+          description: Firma de Stripe para verificar autenticidad del webhook
+          schema:
+            type: string
+          example: t=1234567890,v1=abc123def456...
+      requestBody:
+        required: true
+        description: Evento de Stripe en formato raw JSON
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Objeto de evento de Stripe (estructura varía según tipo de evento)
+              properties:
+                id:
+                  type: string
+                  description: ID único del evento
+                  example: evt_1ABC123DEF456
+                type:
+                  type: string
+                  description: Tipo de evento
+                  example: payment_intent.succeeded
+                data:
+                  type: object
+                  description: Datos del evento
+                  properties:
+                    object:
+                      type: object
+                      description: Objeto relacionado al evento (PaymentIntent, Subscription, Invoice, etc.)
+            examples:
+              paymentSuccess:
+                summary: Pago exitoso
+                value:
+                  id: evt_1ABC123
+                  type: payment_intent.succeeded
+                  data:
+                    object:
+                      id: pi_123456
+                      amount: 499
+                      currency: eur
+                      customer: cus_ABC123
+              subscriptionCreated:
+                summary: Suscripción creada
+                value:
+                  id: evt_2DEF456
+                  type: customer.subscription.created
+                  data:
+                    object:
+                      id: sub_123456
+                      customer: cus_ABC123
+                      status: active
+                      current_period_start: 1699430400
+                      current_period_end: 1702108800
+      responses:
+        '200':
+          description: Webhook procesado exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  received:
+                    type: boolean
+                    example: true
+        '400':
+          description: Error en validación de firma o cuerpo del request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missingSignature:
+                  summary: Falta header de firma
+                  value:
+                    statusCode: 400
+                    message: Missing stripe-signature header
+                    error: Bad Request
+                invalidSignature:
+                  summary: Firma inválida
+                  value:
+                    statusCode: 400
+                    message: 'Webhook Error: No signatures found matching the expected signature for payload'
+                    error: Bad Request
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT token de Supabase. Se obtiene mediante autenticación en Supabase.
+        El token debe incluir los claims: `sub` (userId) y `email`.
+
+  schemas:
+    CreatePaymentIntentDto:
+      type: object
+      required:
+        - planId
+      properties:
+        planId:
+          type: string
+          enum:
+            - travel_pass
+          description: Identificador del plan (solo 'travel_pass' está permitido para Payment Intents)
+          example: travel_pass
+        currency:
+          type: string
+          description: Código de moneda ISO (por defecto 'eur')
+          default: eur
+          example: eur
+          pattern: '^[a-z]{3}$'
+
+    PaymentSheetResponseDto:
+      type: object
+      required:
+        - paymentIntent
+        - ephemeralKey
+        - customer
+        - publishableKey
+      properties:
+        paymentIntent:
+          type: string
+          description: Client secret del Payment Intent para completar el pago
+          example: pi_3ABC123def456_secret_xyz789
+        ephemeralKey:
+          type: string
+          description: Secret de la Ephemeral Key para autenticación temporal del cliente
+          example: ek_test_abc123def456
+        customer:
+          type: string
+          description: ID del cliente en Stripe
+          example: cus_ABC123DEF456
+        publishableKey:
+          type: string
+          description: Publishable key de Stripe para el cliente
+          example: pk_test_51ABC123DEF456
+
+    CreateSetupIntentDto:
+      type: object
+      required:
+        - planId
+      properties:
+        planId:
+          type: string
+          enum:
+            - monthly
+            - annual
+          description: Identificador del plan de suscripción
+          example: monthly
+
+    SetupIntentResponseDto:
+      type: object
+      required:
+        - setupIntent
+        - ephemeralKey
+        - customer
+        - publishableKey
+      properties:
+        setupIntent:
+          type: string
+          description: Client secret del SetupIntent para recopilar método de pago (comienza con 'seti_')
+          example: seti_1ABC123def456_secret_xyz789
+        ephemeralKey:
+          type: string
+          description: Secret de la Ephemeral Key para autenticación temporal del cliente
+          example: ek_test_abc123def456
+        customer:
+          type: string
+          description: ID del cliente en Stripe
+          example: cus_ABC123DEF456
+        publishableKey:
+          type: string
+          description: Publishable key de Stripe para el cliente
+          example: pk_test_51ABC123DEF456
+
+    CreateSubscriptionWithPaymentMethodDto:
+      type: object
+      required:
+        - planId
+      properties:
+        planId:
+          type: string
+          enum:
+            - monthly
+            - annual
+          description: Identificador del plan de suscripción
+          example: monthly
+        setupIntentId:
+          type: string
+          description: |
+            (Opcional) ID del SetupIntent completado (comienza con 'seti_').
+            El backend extraerá automáticamente el método de pago del SetupIntent.
+            Si no se proporciona, se usará el método de pago predeterminado del cliente o el primer método adjunto.
+          example: seti_1ABC123DEF456
+          pattern: '^seti_[a-zA-Z0-9]+$'
+
+    CreateSubscriptionResponseDto:
+      type: object
+      required:
+        - subscriptionId
+        - status
+        - currentPeriodEnd
+      properties:
+        subscriptionId:
+          type: string
+          description: ID de la suscripción creada en Stripe
+          example: sub_1ABC123DEF456
+        status:
+          type: string
+          description: Estado de la suscripción (generalmente 'active' al crear)
+          example: active
+        currentPeriodEnd:
+          type: string
+          format: date-time
+          description: Fecha de finalización del período actual de facturación (formato ISO 8601)
+          example: '2025-12-08T10:30:00.000Z'
+
+    SubscriptionStatusResponseDto:
+      type: object
+      required:
+        - plan
+        - status
+        - isSubscribed
+      properties:
+        plan:
+          type: string
+          nullable: true
+          enum:
+            - travel_pass
+            - monthly
+            - annual
+            - null
+          description: Plan actual del usuario (null si no tiene suscripción)
+          example: monthly
+        status:
+          type: string
+          enum:
+            - active
+            - expired
+            - canceled
+            - past_due
+            - none
+          description: |
+            Estado de la suscripción:
+            - `active`: Suscripción activa y válida
+            - `expired`: Suscripción expirada
+            - `canceled`: Suscripción cancelada pero puede tener acceso residual
+            - `past_due`: Pago atrasado
+            - `none`: Sin suscripción
+          example: active
+        expiryDate:
+          type: string
+          format: date-time
+          description: Fecha de expiración del período actual (formato ISO 8601)
+          example: '2025-12-08T10:30:00.000Z'
+        isSubscribed:
+          type: boolean
+          description: Indica si el usuario tiene acceso activo (true solo si status es 'active')
+          example: true
+
+    ErrorResponse:
+      type: object
+      required:
+        - statusCode
+        - message
+      properties:
+        statusCode:
+          type: integer
+          description: Código de estado HTTP
+          example: 400
+        message:
+          type: string
+          description: Mensaje de error descriptivo
+          example: Validation failed
+        error:
+          type: string
+          description: Tipo de error
+          example: Bad Request
+
+  responses:
+    UnauthorizedError:
+      description: No autenticado - Token JWT faltante o inválido
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            missingToken:
+              summary: Token faltante
+              value:
+                statusCode: 401
+                message: Unauthorized
+                error: Unauthorized
+            invalidToken:
+              summary: Token inválido o expirado
+              value:
+                statusCode: 401
+                message: Invalid token
+                error: Unauthorized
+
+    BadRequestError:
+      description: Error de validación en los datos de entrada
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            validationError:
+              summary: Error de validación
+              value:
+                statusCode: 400
+                message:
+                  - planId must be travel_pass for payment intents
+                error: Bad Request
+
+    InternalServerError:
+      description: Error interno del servidor
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            serverError:
+              summary: Error interno
+              value:
+                statusCode: 500
+                message: Internal server error
+                error: Internal Server Error

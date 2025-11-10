@@ -1,0 +1,49 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PlanType {
+  travel_pass
+  monthly
+  annual
+}
+
+enum SubscriptionStatus {
+  active
+  canceled
+  past_due
+  incomplete
+  expired
+}
+
+model Subscription {
+  id                    String              @id @default(uuid())
+  userId                String              @map("user_id")
+  stripeCustomerId      String              @map("stripe_customer_id")
+  stripeSubscriptionId  String?             @unique @map("stripe_subscription_id")
+  stripePaymentIntentId String?             @map("stripe_payment_intent_id")
+  planId                PlanType            @map("plan_id")
+  status                SubscriptionStatus  @default(incomplete)
+  currentPeriodStart    DateTime            @map("current_period_start")
+  currentPeriodEnd      DateTime            @map("current_period_end")
+  createdAt             DateTime            @default(now()) @map("created_at")
+  updatedAt             DateTime            @updatedAt @map("updated_at")
+
+  // Note: Unique constraint on (userId, planId) has been removed
+  // Instead, we use a partial unique index on userId WHERE status = 'active'
+  // This is managed via raw SQL in migration: unique_active_subscription_per_user
+  // This ensures only ONE active subscription per user at any time
+
+  @@index([userId])
+  @@index([stripeCustomerId])
+  @@index([status])
+  @@map("subscriptions")
+}

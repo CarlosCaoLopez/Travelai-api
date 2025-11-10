@@ -1,0 +1,5 @@
+                  id                  |               user_id                | stripe_customer_id |    stripe_subscription_id    | stripe_payment_intent_id | plan_id | status | current_period_start | current_period_end |       created_at       |       updated_at       
+--------------------------------------+--------------------------------------+--------------------+------------------------------+--------------------------+---------+--------+----------------------+--------------------+------------------------+------------------------
+ eedd33c2-5d00-4634-955f-6bc8865e1d78 | ad7333bb-9171-426b-b7c4-dbf3fc443e3d | cus_TO6Ng2yITlM08g | sub_1SRybYLtV56WBkzPFOVbvQdg |                          | monthly | active |                      |                    | 2025-11-08 21:59:31.73 | 2025-11-10 17:10:15.88
+(1 row)
+
