@@ -1,11 +1,14 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './auth/auth.module';
 import { StripeModule } from './payments/stripe/stripe.module';
 import { PaymentsModule } from './payments/payments.module';
+import { SchedulerModule } from './scheduler/scheduler.module';
+import { HomeModule } from './home/home.module';
 
 @Module({
   imports: [
@@ -13,6 +16,7 @@ import { PaymentsModule } from './payments/payments.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
+    ScheduleModule.forRoot(),
     DatabaseModule,
     AuthModule,
     StripeModule.forRootAsync({
@@ -25,6 +29,8 @@ import { PaymentsModule } from './payments/payments.module';
       }),
     }),
     PaymentsModule,
+    SchedulerModule,
+    HomeModule,
   ],
   controllers: [AppController],
   providers: [AppService],

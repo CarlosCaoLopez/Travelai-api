@@ -93,7 +93,7 @@ CREATE TABLE category_relations (
 
 CREATE TABLE artworks (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-
+    
     -- Referencias Normalizadas
     author_id UUID NOT NULL REFERENCES authors(id) ON DELETE RESTRICT,
     country_code CHAR(2) NOT NULL REFERENCES countries(iso_code) ON DELETE RESTRICT,
@@ -101,10 +101,13 @@ CREATE TABLE artworks (
     subcategory_id TEXT REFERENCES categories(id),
 
     -- Datos Fijos
+    title TEXT NOT NULL,
     year VARCHAR(50),
+    period VARCHAR(100),
     dimensions VARCHAR(100),
+    technique VARCHAR(100),
     image_url TEXT NOT NULL, -- Imagen de alta calidad curada
-
+    
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -113,10 +116,8 @@ CREATE TABLE artwork_translations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     artwork_id UUID NOT NULL REFERENCES artworks(id) ON DELETE CASCADE,
     language VARCHAR(2) NOT NULL,
-    title TEXT NOT NULL,
     description TEXT NOT NULL,
-    period TEXT,
-    technique TEXT,
+    title_override TEXT,
     UNIQUE(artwork_id, language)
 );
 
@@ -127,62 +128,36 @@ CREATE TABLE artwork_translations (
 CREATE TABLE users (
     id UUID PRIMARY KEY, -- Mapped to Supabase Auth UID
     email TEXT UNIQUE NOT NULL,
-
+    
     display_name TEXT,
     avatar_url TEXT,
     preferred_language VARCHAR(2) DEFAULT 'es',
-
+    
     -- Estado
     is_premium BOOLEAN DEFAULT FALSE,
     stripe_customer_id TEXT UNIQUE,
-
+    
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- CreateEnum (Solo para suscripciones recurrentes)
-CREATE TYPE PlanType AS ENUM ('monthly', 'annual');
+-- CreateEnum
+CREATE TYPE PlanType AS ENUM ('travel_pass', 'monthly', 'annual');
 
 -- CreateEnum
 CREATE TYPE SubscriptionStatus AS ENUM ('active', 'canceled', 'past_due', 'incomplete', 'expired');
 
--- CreateEnum
-CREATE TYPE PurchaseStatus AS ENUM ('succeeded', 'pending', 'failed', 'refunded');
-
--- ==========================================
--- PAGOS ÚNICOS (travel_pass, futuros productos)
--- ==========================================
-CREATE TABLE one_time_purchases (
-    id TEXT PRIMARY KEY,                    -- Stripe PaymentIntent ID
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    product_type VARCHAR(50) NOT NULL,      -- 'travel_pass', 'city_guide', etc.
-    amount INTEGER NOT NULL,                -- en centavos
-    currency VARCHAR(3) DEFAULT 'eur',
-    status PurchaseStatus NOT NULL DEFAULT 'pending',
-    valid_until TIMESTAMP WITH TIME ZONE,   -- NULL si no expira
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE INDEX idx_purchases_user ON one_time_purchases(user_id);
-CREATE INDEX idx_purchases_status ON one_time_purchases(status);
-CREATE INDEX idx_purchases_valid_until ON one_time_purchases(valid_until);
-
--- ==========================================
--- SUSCRIPCIONES RECURRENTES (monthly, annual)
--- ==========================================
 CREATE TABLE subscriptions (
-    id TEXT PRIMARY KEY,                    -- Stripe Subscription ID
+    id TEXT PRIMARY KEY, -- Stripe Sub ID
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    plan_id PlanType NOT NULL,
     status SubscriptionStatus NOT NULL DEFAULT 'incomplete',
     current_period_end TIMESTAMP WITH TIME ZONE NOT NULL,
+    plan_id PlanType NOT NULL,
+    -- Datos de Facturación Solicitados
+    stripe_payment_intent_id TEXT, -- Restaurado por solicitud
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
-CREATE INDEX idx_subscriptions_user ON subscriptions(user_id);
-CREATE INDEX idx_subscriptions_status ON subscriptions(status);
 
 -- ==========================================
 -- 5. COLECCIÓN HÍBRIDA (El Core del Usuario)
@@ -191,14 +166,14 @@ CREATE INDEX idx_subscriptions_status ON subscriptions(status);
 CREATE TABLE user_collection_items (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-
+    
     -- A. Referencia Oficial (Puede ser NULL)
     artwork_id UUID REFERENCES artworks(id) ON DELETE SET NULL,
-
+    
     -- B. Evidencia (Siempre existe)
     captured_image_url TEXT NOT NULL,
     identified_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-
+    
     -- C. Datos Snapshot / Custom (Se usan si A es NULL)
     custom_title TEXT,
     custom_author TEXT,
@@ -208,10 +183,10 @@ CREATE TABLE user_collection_items (
     custom_dimensions TEXT,
     custom_country TEXT,
     custom_description TEXT,
-
+    
     -- D. Metadata Técnica (Para mejora continua de IA)
     ai_analysis_data JSONB,
-
+    
     -- Campos de auditoría (Necesarios para el trigger)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -238,6 +213,7 @@ CREATE INDEX idx_user_collection_ai_data ON user_collection_items USING gin (ai_
 
 -- Traducciones (Crucial para JOINs rápidos)
 CREATE INDEX idx_trans_artwork_lang ON artwork_translations(artwork_id, language);
+CREATE INDEX idx_trans_author_lang ON author_translations(author_id, language);
 
 -- ==========================================
 -- 7. TRIGGERS (Automatización)

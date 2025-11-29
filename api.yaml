@@ -1,0 +1,600 @@
+openapi: 3.0.3
+info:
+  title: Art Explorer API
+  description: API para la aplicación de exploración de arte, gestión de colecciones de usuarios y catálogo de obras.
+  version: 1.0.0
+servers:
+  - url: https://api.artexplorer.com
+    description: Servidor de Producción
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # --- Common Types ---
+    UUID:
+      type: string
+      format: uuid
+      example: "550e8400-e29b-41d4-a716-446655440000"
+    
+    CategoryObject:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        icon:
+          type: string
+    
+    # --- Home Screen ---
+    Quote:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        text:
+          type: string
+          example: "El arte es la mentira que nos permite conocer la verdad"
+        author:
+          type: string
+          example: "Pablo Picasso"
+
+    # --- Explore/Locations ---
+    LocationSpot:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        distance:
+          type: integer
+          description: Distancia en metros
+        estimatedTime:
+          type: string
+    
+    # --- Artworks (Catalog) ---
+    Artwork:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        title:
+          type: string
+        author:
+          type: string
+        year:
+          type: string
+        country:
+          type: string
+        period:
+          type: string
+        technique:
+          type: string
+        dimensions:
+          type: string
+        imageUrl:
+          type: string
+          format: uri
+        description:
+          type: string
+        category:
+          $ref: '#/components/schemas/CategoryObject'
+        subcategory:
+          $ref: '#/components/schemas/CategoryObject'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # --- User Collection ---
+    UserIdentifiedArtwork:
+      allOf:
+        - $ref: '#/components/schemas/Artwork'
+        - type: object
+          properties:
+            capturedImageUrl:
+              type: string
+              format: uri
+            identifiedAt:
+              type: string
+              format: date-time
+
+    IdentifyArtworkRequest:
+      type: object
+      required:
+        - capturedImageUrl
+        - country
+        - category_id
+        - subcategory_id
+        - title
+        - author
+        - image_url
+      properties:
+        capturedImageUrl:
+          type: string
+          format: uri
+        country:
+          type: string
+        category_id:
+          type: string
+        subcategory_id:
+          type: string
+        title:
+          type: string
+        author:
+          type: string
+        year:
+          type: string
+        period:
+          type: string
+        dimensions:
+          type: string
+        technique:
+          type: string
+        image_url:
+          type: string # URL de referencia (no la capturada)
+
+    CollectionStats:
+      type: object
+      properties:
+        totalArtworks:
+          type: integer
+        totalArtists:
+          type: integer
+
+    CollectionSummary:
+      type: object
+      properties:
+        stats:
+          $ref: '#/components/schemas/CollectionStats'
+        artistsInCollection:
+          type: array
+          items:
+            type: object
+            properties:
+              artist:
+                type: string
+              artworkCount:
+                type: integer
+        countriesInCollection:
+          type: array
+          items:
+            type: object
+            properties:
+              country:
+                type: string
+              artworkCount:
+                type: integer
+
+paths:
+  # ----------------------------
+  # HOME SCREEN
+  # ----------------------------
+  /api/home/quotes:
+    get:
+      tags:
+        - Home
+      summary: Obtener citas de artistas
+      parameters:
+        - in: query
+          name: language
+          schema:
+            type: string
+            default: 'es'
+          description: Código ISO 639-1 (es, en, fr)
+      responses:
+        '200':
+          description: Lista de citas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  quotes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Quote'
+
+  # ----------------------------
+  # EXPLORE SCREEN
+  # ----------------------------
+  /api/explore/locations/nearby:
+    get:
+      tags:
+        - Explore
+      summary: Obtener lugares culturales cercanos
+      parameters:
+        - in: query
+          name: latitude
+          required: true
+          schema:
+            type: number
+            format: float
+        - in: query
+          name: longitude
+          required: true
+          schema:
+            type: number
+            format: float
+        - in: query
+          name: maxDistance
+          schema:
+            type: integer
+            default: 5000
+        - in: query
+          name: language
+          schema:
+            type: string
+            default: 'es'
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Lista de lugares cercanos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  locations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LocationSpot'
+                  count:
+                    type: integer
+
+  /api/explore/artworks:
+    get:
+      tags:
+        - Explore
+      summary: Listar obras del catálogo por categoría/país
+      parameters:
+        - in: query
+          name: category_id
+          schema:
+            type: string
+        - in: query
+          name: subcategory_id
+          schema:
+            type: string
+        - in: query
+          name: country
+          schema:
+            type: string
+        - in: query
+          name: language
+          schema:
+            type: string
+            default: 'es'
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Lista paginada de obras
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  artworks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Artwork'
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      limit:
+                        type: integer
+                      offset:
+                        type: integer
+                      hasMore:
+                        type: boolean
+                  filters:
+                    type: object
+
+  # ----------------------------
+  # ARTWORKS (CATALOG)
+  # ----------------------------
+  /api/artworks/{id}:
+    get:
+      tags:
+        - Artworks Catalog
+      summary: Obtener detalle de una obra específica
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            $ref: '#/components/schemas/UUID'
+        - in: query
+          name: language
+          schema:
+            type: string
+            default: 'es'
+      responses:
+        '200':
+          description: Detalle de la obra
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  artwork:
+                    $ref: '#/components/schemas/Artwork'
+
+  /api/artworks/search:
+    get:
+      tags:
+        - Artworks Catalog
+      summary: Buscar obras por título o autor
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+          description: Query de búsqueda
+        - in: query
+          name: language
+          schema:
+            type: string
+            default: 'es'
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Resultados de búsqueda
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Artwork'
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      limit:
+                        type: integer
+                      offset:
+                        type: integer
+                      hasMore:
+                        type: boolean
+                  query:
+                    type: string
+
+  # ----------------------------
+  # USER COLLECTION
+  # ----------------------------
+  /api/user/collection:
+    get:
+      tags:
+        - User Collection
+      summary: Resumen de la colección del usuario
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: language
+          schema:
+            type: string
+            default: 'es'
+      responses:
+        '200':
+          description: Estadísticas y grupos de la colección
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionSummary'
+
+  /api/user/collection/artist/{artistName}:
+    get:
+      tags:
+        - User Collection
+      summary: Obtener obras de usuario filtradas por artista
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: artistName
+          required: true
+          schema:
+            type: string
+          description: Nombre del artista (URL encoded)
+        - in: query
+          name: language
+          schema:
+            type: string
+            default: 'es'
+      responses:
+        '200':
+          description: Obras del artista en la colección
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  artist:
+                    type: string
+                  artworkCount:
+                    type: integer
+                  artworks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UserIdentifiedArtwork'
+
+  /api/user/collection/country/{countryName}:
+    get:
+      tags:
+        - User Collection
+      summary: Obtener obras de usuario filtradas por país
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: countryName
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: language
+          schema:
+            type: string
+            default: 'es'
+      responses:
+        '200':
+          description: Obras del país en la colección
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  country:
+                    type: string
+                  artworkCount:
+                    type: integer
+                  artworks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UserIdentifiedArtwork'
+
+  /api/user/collection/recent:
+    get:
+      tags:
+        - User Collection
+      summary: Obtener obras recientemente identificadas
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 3
+        - in: query
+          name: language
+          schema:
+            type: string
+            default: 'es'
+      responses:
+        '200':
+          description: Lista de obras recientes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  artworks:
+                    type: array
+                    items:
+                      # Nota: La respuesta de ejemplo muestra una versión simplificada, 
+                      # pero usaremos el esquema completo para consistencia o una versión parcial inline
+                      type: object
+                      properties:
+                        id:
+                          $ref: '#/components/schemas/UUID'
+                        title:
+                          type: string
+                        author:
+                          type: string
+                        capturedImageUrl:
+                          type: string
+                        identifiedAt:
+                          type: string
+                          format: date-time
+
+  /api/user/collection/identify:
+    post:
+      tags:
+        - User Collection
+      summary: Guardar una obra identificada en la colección
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IdentifyArtworkRequest'
+      responses:
+        '200':
+          description: Obra guardada exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  artwork:
+                    $ref: '#/components/schemas/UserIdentifiedArtwork'
+                  updatedStats:
+                    $ref: '#/components/schemas/CollectionStats'
+
+  /api/user/collection/{id}:
+    delete:
+      tags:
+        - User Collection
+      summary: Eliminar una obra de la colección
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            $ref: '#/components/schemas/UUID'
+      responses:
+        '200':
+          description: Obra eliminada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  deletedId:
+                    $ref: '#/components/schemas/UUID'
+                  updatedStats:
+                    $ref: '#/components/schemas/CollectionStats'
