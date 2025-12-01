@@ -9,6 +9,10 @@ import { StripeModule } from './payments/stripe/stripe.module';
 import { PaymentsModule } from './payments/payments.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
 import { HomeModule } from './home/home.module';
+import { ExploreModule } from './explore/explore.module';
+import { ArtworksModule } from './artworks/artworks.module';
+import { UserCollectionModule } from './user-collection/user-collection.module';
+import { CameraModule } from './camera/camera.module';
 
 @Module({
   imports: [
@@ -31,6 +35,10 @@ import { HomeModule } from './home/home.module';
     PaymentsModule,
     SchedulerModule,
     HomeModule,
+    ExploreModule,
+    ArtworksModule,
+    UserCollectionModule,
+    CameraModule,
   ],
   controllers: [AppController],
   providers: [AppService],

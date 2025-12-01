@@ -178,6 +178,109 @@ components:
               artworkCount:
                 type: integer
 
+    # --- Camera Recognition ---
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "Invalid image format"
+        message:
+          type: string
+          example: "The uploaded file must be a valid JPG, PNG, or HEIC image"
+
+    RecognizeArtworkRequest:
+      type: object
+      required:
+        - image
+      properties:
+        image:
+          type: string
+          format: binary
+          description: "Imagen capturada del monumento u obra de arte (JPG, PNG, HEIC - máximo 10MB)"
+        device_metadata:
+          type: object
+          description: "Metadata opcional del dispositivo para analytics"
+          properties:
+            platform:
+              type: string
+              enum: [ios, android]
+              example: "ios"
+            app_version:
+              type: string
+              example: "1.0.0"
+
+    RecognizedArtworkData:
+      type: object
+      description: "Datos de la obra identificada - null si no se pudo identificar"
+      nullable: true
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        title:
+          type: string
+          example: "Las Meninas"
+        artist:
+          type: string
+          example: "Diego Velázquez"
+        year:
+          type: string
+          example: "1656"
+        period:
+          type: string
+          example: "Spanish Baroque"
+          description: "Período artístico o movimiento"
+        description:
+          type: string
+          example: "One of the masterpieces of the Spanish Golden Age. It shows Infanta Margaret surrounded by her ladies-in-waiting (meninas) and other members of the court, including the painter himself. The complex composition with multiple viewpoints, the masterful use of light, and the mirror reflecting King Philip IV and Queen Mariana of Austria, challenge the perception of space and reality."
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          example: 0.98
+          description: "Nivel de confianza del reconocimiento (0.0 - 1.0)"
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["Spanish Baroque", "Court Portrait", "Oil on Canvas", "17th Century", "Prado Museum"]
+          description: "Categorías, estilos y metadata adicional"
+        capturedImageUrl:
+          type: string
+          format: uri
+          example: "https://storage.artexplorer.com/captures/user123/abc123.jpg"
+          description: "URL de la imagen capturada almacenada en el servidor"
+        identifiedAt:
+          type: string
+          format: date-time
+          example: "2025-11-30T14:30:00Z"
+
+    RecognizedArtworkResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+          description: "Indica si la operación fue exitosa a nivel técnico"
+        identified:
+          type: boolean
+          example: true
+          description: "Indica si la obra fue identificada por la IA (true) o no se pudo reconocer (false)"
+        artwork:
+          $ref: '#/components/schemas/RecognizedArtworkData'
+        savedToCollection:
+          type: boolean
+          example: true
+          description: "Indica si la obra se guardó en la colección del usuario (solo true si identified=true)"
+        message:
+          type: string
+          example: "Artwork successfully identified and saved to collection"
+          description: "Mensaje descriptivo del resultado para el usuario"
+
 paths:
   # ----------------------------
   # HOME SCREEN
@@ -206,6 +309,145 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Quote'
+
+  # ----------------------------
+  # CAMERA RECOGNITION
+  # ----------------------------
+  /api/camera/recognize:
+    post:
+      tags:
+        - Camera Recognition
+      summary: Reconocer monumento u obra de arte desde imagen capturada
+      description: |
+        Recibe una imagen capturada por el usuario, la procesa mediante IA para identificar
+        el monumento u obra de arte, y automáticamente la guarda en la colección del usuario
+        si es reconocida exitosamente.
+
+        **Flujo:**
+        1. Usuario captura foto desde la cámara
+        2. Frontend envía imagen como multipart/form-data
+        3. Backend procesa con IA y busca coincidencias
+        4. Si identifica: guarda en colección y retorna datos completos
+        5. Si no identifica: retorna identified=false con mensaje descriptivo
+
+        **Limitaciones:**
+        - Tamaño máximo: 10MB
+        - Formatos soportados: JPG, PNG, HEIC
+        - Rate limiting aplicado según tier de suscripción del usuario
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: language
+          schema:
+            type: string
+            pattern: '^[a-z]{2}$'
+            default: 'es'
+          description: Código ISO 639-1 del idioma (es, en, fr) para los resultados
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RecognizeArtworkRequest'
+            encoding:
+              image:
+                contentType: image/jpeg, image/png, image/heic
+      responses:
+        '200':
+          description: |
+            Operación exitosa - puede indicar obra identificada (identified=true)
+            o no identificada (identified=false)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecognizedArtworkResponse'
+              examples:
+                identified:
+                  summary: Obra identificada exitosamente
+                  value:
+                    success: true
+                    identified: true
+                    artwork:
+                      id: "550e8400-e29b-41d4-a716-446655440000"
+                      title: "Las Meninas"
+                      artist: "Diego Velázquez"
+                      year: "1656"
+                      period: "Spanish Baroque"
+                      description: "One of the masterpieces of the Spanish Golden Age. It shows Infanta Margaret surrounded by her ladies-in-waiting (meninas) and other members of the court, including the painter himself. The complex composition with multiple viewpoints, the masterful use of light, and the mirror reflecting King Philip IV and Queen Mariana of Austria, challenge the perception of space and reality."
+                      confidence: 0.98
+                      tags: ["Spanish Baroque", "Court Portrait", "Oil on Canvas", "17th Century", "Prado Museum"]
+                      capturedImageUrl: "https://storage.artexplorer.com/captures/user123/abc123.jpg"
+                      identifiedAt: "2025-11-30T14:30:00Z"
+                    savedToCollection: true
+                    message: "Artwork successfully identified and saved to collection"
+                not_identified:
+                  summary: Obra no pudo ser identificada
+                  value:
+                    success: true
+                    identified: false
+                    artwork: null
+                    savedToCollection: false
+                    message: "Artwork could not be identified. Try with better lighting or a different angle."
+        '400':
+          description: Solicitud inválida - imagen corrupta, formato no soportado, etc.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalid_format:
+                  summary: Formato de imagen no válido
+                  value:
+                    success: false
+                    error: "invalid_image_format"
+                    message: "The uploaded file must be a valid JPG, PNG, or HEIC image"
+                missing_image:
+                  summary: Falta el campo image
+                  value:
+                    success: false
+                    error: "missing_required_field"
+                    message: "The 'image' field is required"
+        '401':
+          description: No autenticado - token JWT inválido o faltante
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "unauthorized"
+                message: "Valid authentication token required"
+        '413':
+          description: Payload demasiado grande - imagen excede 10MB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "payload_too_large"
+                message: "Image file size must not exceed 10MB"
+        '429':
+          description: Demasiadas solicitudes - rate limit excedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "rate_limit_exceeded"
+                message: "Recognition limit reached. Upgrade to premium for unlimited scans."
+        '500':
+          description: Error interno del servidor - fallo en procesamiento IA o base de datos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "internal_server_error"
+                message: "An unexpected error occurred while processing the image. Please try again."
 
   # ----------------------------
   # EXPLORE SCREEN

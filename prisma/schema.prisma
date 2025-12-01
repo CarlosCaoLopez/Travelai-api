@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,9 +7,210 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ==========================================
-// ENUMS
-// ==========================================
+model Country {
+  isoCode      String               @id @map("iso_code") @db.Char(2)
+  defaultName  String               @map("default_name")
+  createdAt    DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  artworks     Artwork[]
+  translations CountryTranslation[]
+
+  @@map("countries")
+}
+
+model CountryTranslation {
+  id          String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  countryCode String  @map("country_code") @db.Char(2)
+  language    String  @db.VarChar(2)
+  name        String
+  country     Country @relation(fields: [countryCode], references: [isoCode], onDelete: Cascade)
+
+  @@unique([countryCode, language])
+  @@map("country_translations")
+}
+
+model Author {
+  id        String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name      String
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  quotes    ArtistQuote[]
+  artworks  Artwork[]
+
+  @@index([name])
+  @@map("authors")
+}
+
+model ArtistQuote {
+  id           String                   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  authorId     String                   @map("author_id") @db.Uuid
+  createdAt    DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  translations ArtistQuoteTranslation[]
+  author       Author                   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@map("artist_quotes")
+}
+
+model ArtistQuoteTranslation {
+  id       String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  quoteId  String      @map("quote_id") @db.Uuid
+  language String      @db.VarChar(2)
+  text     String
+  quote    ArtistQuote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@unique([quoteId, language])
+  @@map("artist_quote_translations")
+}
+
+model Category {
+  id               String                @id
+  type             String                @db.VarChar(20)
+  icon             String
+  imageUrl         String?               @map("image_url")
+  sortOrder        Int                   @default(0) @map("sort_order")
+  createdAt        DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  artworks         Artwork[]             @relation("CategoryArtwork")
+  subcategoryWorks Artwork[]             @relation("SubcategoryArtwork")
+  childRelations   CategoryRelation[]    @relation("ChildCategory")
+  parentRelations  CategoryRelation[]    @relation("ParentCategory")
+  translations     CategoryTranslation[]
+
+  @@map("categories")
+}
+
+model CategoryTranslation {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  categoryId String   @map("category_id")
+  language   String   @db.VarChar(2)
+  name       String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, language])
+  @@map("category_translations")
+}
+
+model CategoryRelation {
+  parentId  String   @map("parent_id")
+  childId   String   @map("child_id")
+  sortOrder Int      @default(0) @map("sort_order")
+  child     Category @relation("ChildCategory", fields: [childId], references: [id], onDelete: Cascade)
+  parent    Category @relation("ParentCategory", fields: [parentId], references: [id], onDelete: Cascade)
+
+  @@id([parentId, childId])
+  @@map("category_relations")
+}
+
+model Artwork {
+  id                  String               @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  authorId            String               @map("author_id") @db.Uuid
+  countryCode         String               @map("country_code") @db.Char(2)
+  categoryId          String               @map("category_id")
+  subcategoryId       String?              @map("subcategory_id")
+  year                String?              @db.VarChar(50)
+  dimensions          String?              @db.VarChar(100)
+  imageUrl            String               @map("image_url")
+  createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  translations        ArtworkTranslation[]
+  author              Author               @relation(fields: [authorId], references: [id])
+  category            Category             @relation("CategoryArtwork", fields: [categoryId], references: [id])
+  country             Country              @relation(fields: [countryCode], references: [isoCode])
+  subcategory         Category?            @relation("SubcategoryArtwork", fields: [subcategoryId], references: [id])
+  userCollectionItems UserCollectionItem[]
+
+  @@index([authorId])
+  @@index([categoryId, subcategoryId])
+  @@map("artworks")
+}
+
+model ArtworkTranslation {
+  id          String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  artworkId   String  @map("artwork_id") @db.Uuid
+  language    String  @db.VarChar(2)
+  title       String
+  description String
+  period      String?
+  technique   String?
+  artwork     Artwork @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+
+  @@unique([artworkId, language])
+  @@index([artworkId, language])
+  @@map("artwork_translations")
+}
+
+model User {
+  id                String               @id @db.Uuid
+  email             String               @unique
+  displayName       String?              @map("display_name")
+  avatarUrl         String?              @map("avatar_url")
+  preferredLanguage String?              @default("es") @map("preferred_language") @db.VarChar(2)
+  isPremium         Boolean              @default(false) @map("is_premium")
+  stripeCustomerId  String?              @unique @map("stripe_customer_id")
+  createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  oneTimePurchases  OneTimePurchase[]
+  subscriptions     Subscription[]
+  collectionItems   UserCollectionItem[]
+
+  @@map("users")
+}
+
+model OneTimePurchase {
+  id          String         @id
+  userId      String         @map("user_id") @db.Uuid
+  productType String         @map("product_type") @db.VarChar(50)
+  amount      Int
+  currency    String         @default("eur") @db.VarChar(3)
+  validUntil  DateTime?      @map("valid_until") @db.Timestamptz(6)
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  status      PurchaseStatus @default(pending)
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([userId], map: "idx_purchases_user")
+  @@index([validUntil], map: "idx_purchases_valid_until")
+  @@map("one_time_purchases")
+}
+
+model Subscription {
+  id               String             @id
+  userId           String             @map("user_id") @db.Uuid
+  currentPeriodEnd DateTime           @map("current_period_end") @db.Timestamptz(6)
+  createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  planId           PlanType           @map("plan_id")
+  status           SubscriptionStatus @default(incomplete)
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([userId], map: "idx_subscriptions_user")
+  @@map("subscriptions")
+}
+
+model UserCollectionItem {
+  id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId            String   @map("user_id") @db.Uuid
+  artworkId         String?  @map("artwork_id") @db.Uuid
+  capturedImageUrl  String   @map("captured_image_url")
+  identifiedAt      DateTime @default(now()) @map("identified_at") @db.Timestamptz(6)
+  customTitle       String?  @map("custom_title")
+  customAuthor      String?  @map("custom_author")
+  customYear        String?  @map("custom_year")
+  customPeriod      String?  @map("custom_period")
+  customTechnique   String?  @map("custom_technique")
+  customDimensions  String?  @map("custom_dimensions")
+  customCountry     String?  @map("custom_country")
+  customDescription String?  @map("custom_description")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  artwork           Artwork? @relation(fields: [artworkId], references: [id])
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([identifiedAt(sort: Desc)], map: "idx_user_collection_date")
+  @@index([userId], map: "idx_user_collection_user")
+  @@map("user_collection_items")
+}
 
 enum PlanType {
   monthly
@@ -32,267 +230,4 @@ enum PurchaseStatus {
   pending
   failed
   refunded
-}
-
-// ==========================================
-// COUNTRIES
-// ==========================================
-model Country {
-  isoCode     String   @id @map("iso_code") @db.Char(2)
-  defaultName String   @map("default_name")
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
-
-  // Relations
-  translations CountryTranslation[]
-  artworks     Artwork[]
-
-  @@map("countries")
-}
-
-model CountryTranslation {
-  id          String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  countryCode String  @map("country_code") @db.Char(2)
-  language    String  @db.VarChar(2)
-  name        String
-
-  // Relations
-  country Country @relation(fields: [countryCode], references: [isoCode], onDelete: Cascade)
-
-  @@unique([countryCode, language])
-  @@map("country_translations")
-}
-
-// ==========================================
-// AUTHORS
-// ==========================================
-model Author {
-  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  name      String
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
-
-  // Relations
-  artworks Artwork[]
-  quotes   ArtistQuote[]
-
-  @@index([name])
-  @@map("authors")
-}
-
-model ArtistQuote {
-  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  authorId  String   @map("author_id") @db.Uuid
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
-
-  // Relations
-  author       Author                    @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  translations ArtistQuoteTranslation[]
-
-  @@map("artist_quotes")
-}
-
-model ArtistQuoteTranslation {
-  id       String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  quoteId  String @map("quote_id") @db.Uuid
-  language String @db.VarChar(2)
-  text     String
-
-  // Relations
-  quote ArtistQuote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-
-  @@unique([quoteId, language])
-  @@map("artist_quote_translations")
-}
-
-// ==========================================
-// CATEGORIES
-// ==========================================
-model Category {
-  id        String   @id
-  type      String   @db.VarChar(20)
-  icon      String
-  imageUrl  String?  @map("image_url")
-  sortOrder Int      @default(0) @map("sort_order")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
-
-  // Relations
-  translations     CategoryTranslation[]
-  parentRelations  CategoryRelation[]    @relation("ParentCategory")
-  childRelations   CategoryRelation[]    @relation("ChildCategory")
-  artworks         Artwork[]             @relation("CategoryArtwork")
-  subcategoryWorks Artwork[]             @relation("SubcategoryArtwork")
-
-  @@map("categories")
-}
-
-model CategoryTranslation {
-  id         String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  categoryId String @map("category_id")
-  language   String @db.VarChar(2)
-  name       String
-
-  // Relations
-  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-
-  @@unique([categoryId, language])
-  @@map("category_translations")
-}
-
-model CategoryRelation {
-  parentId  String @map("parent_id")
-  childId   String @map("child_id")
-  sortOrder Int    @default(0) @map("sort_order")
-
-  // Relations
-  parent Category @relation("ParentCategory", fields: [parentId], references: [id], onDelete: Cascade)
-  child  Category @relation("ChildCategory", fields: [childId], references: [id], onDelete: Cascade)
-
-  @@id([parentId, childId])
-  @@map("category_relations")
-}
-
-// ==========================================
-// ARTWORKS
-// ==========================================
-model Artwork {
-  id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  authorId      String   @map("author_id") @db.Uuid
-  countryCode   String   @map("country_code") @db.Char(2)
-  categoryId    String   @map("category_id")
-  subcategoryId String?  @map("subcategory_id")
-  year          String?  @db.VarChar(50)
-  dimensions    String?  @db.VarChar(100)
-  imageUrl      String   @map("image_url")
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
-
-  // Relations
-  author              Author                @relation(fields: [authorId], references: [id], onDelete: Restrict)
-  country             Country               @relation(fields: [countryCode], references: [isoCode], onDelete: Restrict)
-  category            Category              @relation("CategoryArtwork", fields: [categoryId], references: [id])
-  subcategory         Category?             @relation("SubcategoryArtwork", fields: [subcategoryId], references: [id])
-  translations        ArtworkTranslation[]
-  userCollectionItems UserCollectionItem[]
-
-  @@index([authorId])
-  @@index([categoryId, subcategoryId])
-  @@map("artworks")
-}
-
-model ArtworkTranslation {
-  id          String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  artworkId   String  @map("artwork_id") @db.Uuid
-  language    String  @db.VarChar(2)
-  title       String
-  description String
-  period      String?
-  technique   String?
-
-  // Relations
-  artwork Artwork @relation(fields: [artworkId], references: [id], onDelete: Cascade)
-
-  @@unique([artworkId, language])
-  @@index([artworkId, language])
-  @@map("artwork_translations")
-}
-
-// ==========================================
-// USER MODEL
-// ==========================================
-model User {
-  id                String    @id @db.Uuid
-  email             String    @unique
-  displayName       String?   @map("display_name")
-  avatarUrl         String?   @map("avatar_url")
-  preferredLanguage String?   @default("es") @map("preferred_language") @db.VarChar(2)
-  isPremium         Boolean   @default(false) @map("is_premium")
-  stripeCustomerId  String?   @unique @map("stripe_customer_id")
-  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz
-
-  // Relations
-  subscriptions      Subscription[]
-  oneTimePurchases   OneTimePurchase[]
-  collectionItems    UserCollectionItem[]
-
-  @@map("users")
-}
-
-// ==========================================
-// ONE-TIME PURCHASES (travel_pass, future products)
-// ==========================================
-model OneTimePurchase {
-  id          String         @id // Stripe PaymentIntent ID
-  userId      String         @map("user_id") @db.Uuid
-  productType String         @map("product_type") @db.VarChar(50)
-  amount      Int            // en centavos
-  currency    String         @default("eur") @db.VarChar(3)
-  status      PurchaseStatus @default(pending)
-  validUntil  DateTime?      @map("valid_until") @db.Timestamptz
-  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz
-
-  // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([status])
-  @@index([validUntil])
-  @@map("one_time_purchases")
-}
-
-// ==========================================
-// SUBSCRIPTIONS (monthly, annual only)
-// ==========================================
-model Subscription {
-  id               String             @id // Stripe Subscription ID
-  userId           String             @map("user_id") @db.Uuid
-  planId           PlanType           @map("plan_id")
-  status           SubscriptionStatus @default(incomplete)
-  currentPeriodEnd DateTime           @map("current_period_end") @db.Timestamptz
-  createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt        DateTime           @updatedAt @map("updated_at") @db.Timestamptz
-
-  // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([status])
-  @@map("subscriptions")
-}
-
-// ==========================================
-// USER COLLECTION (Hybrid)
-// ==========================================
-model UserCollectionItem {
-  id                String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  userId            String    @map("user_id") @db.Uuid
-  artworkId         String?   @map("artwork_id") @db.Uuid
-  capturedImageUrl  String    @map("captured_image_url")
-  identifiedAt      DateTime  @default(now()) @map("identified_at") @db.Timestamptz
-
-  // Custom/Snapshot data (used if artworkId is NULL)
-  customTitle       String?   @map("custom_title")
-  customAuthor      String?   @map("custom_author")
-  customYear        String?   @map("custom_year")
-  customPeriod      String?   @map("custom_period")
-  customTechnique   String?   @map("custom_technique")
-  customDimensions  String?   @map("custom_dimensions")
-  customCountry     String?   @map("custom_country")
-  customDescription String?   @map("custom_description")
-
-  // Technical metadata (for AI improvement)
-  aiAnalysisData    Json?     @map("ai_analysis_data")
-
-  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz
-
-  // Relations
-  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  artwork Artwork? @relation(fields: [artworkId], references: [id], onDelete: SetNull)
-
-  @@index([userId])
-  @@index([identifiedAt(sort: Desc)])
-  @@map("user_collection_items")
 }

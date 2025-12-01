@@ -15,7 +15,9 @@ export class HomeController {
    * @returns Array of quotes with translations
    */
   @Get('quotes')
-  async getQuotes(@Query() query: GetQuotesQueryDto): Promise<QuotesResponseDto> {
+  async getQuotes(
+    @Query() query: GetQuotesQueryDto,
+  ): Promise<QuotesResponseDto> {
     const language = query.language || 'es';
     this.logger.log(`GET /api/home/quotes - language: ${language}`);
 
