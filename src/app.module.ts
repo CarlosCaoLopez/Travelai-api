@@ -13,6 +13,7 @@ import { ExploreModule } from './explore/explore.module';
 import { ArtworksModule } from './artworks/artworks.module';
 import { UserCollectionModule } from './user-collection/user-collection.module';
 import { CameraModule } from './camera/camera.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { CameraModule } from './camera/camera.module';
     ArtworksModule,
     UserCollectionModule,
     CameraModule,
+    WebhooksModule,
   ],
   controllers: [AppController],
   providers: [AppService],

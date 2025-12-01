@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { HttpService } from '@nestjs/axios';
-import { firstValueFrom } from 'rxjs';
+import OpenAI from 'openai';
 
 interface QwenVLResponse {
   identified: boolean;
@@ -21,19 +20,37 @@ interface QwenVLResponse {
 @Injectable()
 export class QwenVisionService {
   private readonly logger = new Logger(QwenVisionService.name);
-  private readonly apiKey: string;
-  private readonly apiUrl: string;
+  private readonly qwenClient: OpenAI;
   private readonly model: string;
 
-  constructor(
-    private readonly httpService: HttpService,
-    private readonly configService: ConfigService,
-  ) {
-    this.apiKey = this.configService.get<string>('QWEN_API_KEY') ?? '';
-    this.apiUrl = this.configService.get<string>('QWEN_VL_API_URL') ?? '';
+  constructor(private readonly configService: ConfigService) {
+    const apiKey = this.configService.get<string>('QWEN_API_KEY') ?? '';
+    const baseURL =
+      this.configService.get<string>('QWEN_BASE_URL') ??
+      'https://dashscope.aliyuncs.com/compatible-mode/v1';
     this.model =
-      this.configService.get<string>('QWEN_VL_MODEL', 'qwen-vl-max-latest') ??
-      'qwen-vl-max-latest';
+      this.configService.get<string>('QWEN_VL_MODEL') ?? 'qwen-vl-max-latest';
+
+    // Log configuration for debugging (mask API key for security)
+    this.logger.log(
+      `Initializing QwenVisionService with model: ${this.model}, baseURL: ${baseURL}`,
+    );
+    if (!apiKey || apiKey.trim() === '') {
+      this.logger.warn(
+        '⚠️  QWEN_API_KEY is not configured! Vision analysis will fail.',
+      );
+    } else {
+      this.logger.log(
+        `API Key configured: ${apiKey.substring(0, 8)}...${apiKey.substring(apiKey.length - 4)} (length: ${apiKey.length})`,
+      );
+    }
+
+    this.qwenClient = new OpenAI({
+      apiKey,
+      baseURL,
+      timeout: 30000, // 30 second timeout for vision requests
+      maxRetries: 0, // No retries for vision - fail fast
+    });
   }
 
   async analyzeArtworkImage(
@@ -45,38 +62,75 @@ export class QwenVisionService {
 
       this.logger.log(`Analyzing artwork with Qwen VL (language: ${language})`);
 
-      const response = await firstValueFrom(
-        this.httpService.post(
-          this.apiUrl,
+      const response = await this.qwenClient.chat.completions.create({
+        model: this.model,
+        messages: [
           {
-            model: this.model,
-            input: {
-              messages: [
-                {
-                  role: 'user',
-                  content: [{ image: base64Image }, { text: prompt }],
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: prompt,
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:image/jpeg;base64,${base64Image}`,
                 },
-              ],
-            },
-            parameters: {
-              max_tokens: 1500,
-              temperature: 0.1, // Low temperature for factual responses
-            },
+              },
+            ],
           },
-          {
-            headers: {
-              Authorization: `Bearer ${this.apiKey}`,
-              'Content-Type': 'application/json',
-            },
-            timeout: 30000,
-          },
-        ),
-      );
+        ],
+        max_tokens: 1500,
+        temperature: 0.1, // Low temperature for factual responses
+      });
 
-      const content = response.data.output.choices[0].message.content[0].text;
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        this.logger.warn('Empty response from Qwen VL');
+        return { identified: false, confidence: 0 };
+      }
+
       return this.parseResponse(content);
     } catch (error) {
-      this.logger.error(`Qwen VL analysis failed: ${error.message}`);
+      // Enhanced error logging for debugging
+      this.logger.error('❌ Qwen VL analysis failed with detailed error:');
+      this.logger.error(`  Message: ${error.message}`);
+      this.logger.error(`  Error Type: ${error.constructor.name}`);
+
+      // Log detailed error information for OpenAI API errors
+      if (error.status) {
+        this.logger.error(`  HTTP Status: ${error.status}`);
+      }
+      if (error.code) {
+        this.logger.error(`  Error Code: ${error.code}`);
+      }
+      if (error.type) {
+        this.logger.error(`  Error Type: ${error.type}`);
+      }
+
+      // Log the response body if available (for API errors)
+      if (error.response) {
+        this.logger.error(`  Response Headers: ${JSON.stringify(error.response.headers)}`);
+        this.logger.error(`  Response Body: ${JSON.stringify(error.response.data)}`);
+      }
+
+      // Log the full error object for maximum debugging info
+      if (error.error) {
+        this.logger.error(`  API Error Details: ${JSON.stringify(error.error)}`);
+      }
+
+      // Log the request details (without sensitive data)
+      this.logger.error(`  Model Used: ${this.model}`);
+      this.logger.error(
+        `  Image Size: ${Math.round(base64Image.length / 1024)}KB (base64)`,
+      );
+
+      // Log stack trace in development
+      if (error.stack) {
+        this.logger.debug(`  Stack Trace: ${error.stack}`);
+      }
+
       return { identified: false, confidence: 0 };
     }
   }

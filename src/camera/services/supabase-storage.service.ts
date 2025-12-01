@@ -70,15 +70,19 @@ export class SupabaseStorageService {
   /**
    * Sanitize string for use in storage path
    * Removes special characters and spaces, converts to lowercase
+   * Normalizes accented characters and replaces spaces with hyphens
    */
   private sanitizeForPath(name: string): string {
     return name
       .toLowerCase()
       .normalize('NFD') // Decompose accented characters
-      .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
-      .replace(/[^a-z0-9]+/g, '_') // Replace non-alphanumeric with underscore
-      .replace(/^_+|_+$/g, '') // Remove leading/trailing underscores
-      .substring(0, 50); // Limit length
+      .replace(/[\u0300-\u036f]/g, '') // Remove diacritics (accents)
+      .replace(/[^a-z0-9\s-]/g, '') // Remove special chars, keep spaces and hyphens
+      .replace(/\s+/g, '-') // Replace spaces with hyphens
+      .replace(/_+/g, '-') // Replace underscores with hyphens
+      .replace(/-+/g, '-') // Collapse multiple hyphens
+      .replace(/^-|-$/g, '') // Trim hyphens from ends
+      .substring(0, 150); // Reasonable limit (increased from 50)
   }
 
   /**

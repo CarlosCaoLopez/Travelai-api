@@ -1,67 +1,33 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
-import { firstValueFrom, timeout, catchError } from 'rxjs';
-
-interface QwenMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
-
-interface QwenRequest {
-  model: string;
-  input: {
-    messages: QwenMessage[];
-  };
-  parameters?: {
-    result_format?: 'message' | 'text';
-    temperature?: number;
-    top_p?: number;
-    max_tokens?: number;
-  };
-}
-
-interface QwenResponse {
-  output: {
-    text?: string;
-    choices?: Array<{
-      message: {
-        role: string;
-        content: string;
-      };
-      finish_reason: string;
-    }>;
-  };
-  usage: {
-    input_tokens: number;
-    output_tokens: number;
-    total_tokens: number;
-  };
-  request_id: string;
-}
+import OpenAI from 'openai';
 
 @Injectable()
 export class QwenService {
   private readonly logger = new Logger(QwenService.name);
-  private readonly qwenApiKey: string;
-  private readonly qwenApiUrl: string;
+  private readonly qwenClient: OpenAI | null = null;
   private readonly qwenModel: string;
 
-  constructor(
-    private readonly httpService: HttpService,
-    private readonly configService: ConfigService,
-  ) {
-    this.qwenApiKey = this.configService.get<string>('QWEN_API_KEY') || '';
-    this.qwenApiUrl =
-      this.configService.get<string>('QWEN_API_URL') ||
-      'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation';
+  constructor(private readonly configService: ConfigService) {
+    const qwenApiKey = this.configService.get<string>('QWEN_API_KEY') || '';
+    const qwenBaseUrl =
+      this.configService.get<string>('QWEN_BASE_URL') ||
+      'https://dashscope.aliyuncs.com/compatible-mode/v1';
     this.qwenModel =
       this.configService.get<string>('QWEN_MODEL') || 'qwen-flash';
 
-    if (!this.qwenApiKey) {
+    if (!qwenApiKey) {
       this.logger.warn(
         'QWEN_API_KEY not configured - will use fallback descriptions',
       );
+    } else {
+      // Initialize OpenAI client with Qwen's compatible endpoint
+      this.qwenClient = new OpenAI({
+        apiKey: qwenApiKey,
+        baseURL: qwenBaseUrl,
+        timeout: 5000, // 5 second timeout
+        maxRetries: 0, // No retries - fail fast and use fallback
+      });
     }
   }
 
@@ -79,7 +45,7 @@ export class QwenService {
     language: string = 'es',
   ): Promise<string> {
     // If API key is not configured, return fallback immediately
-    if (!this.qwenApiKey) {
+    if (!this.qwenClient) {
       return this.getFallbackDescription(placeName, category);
     }
 
@@ -88,51 +54,27 @@ export class QwenService {
     this.logger.log(`Generating description for: ${placeName} (${category})`);
 
     try {
-      const requestBody: QwenRequest = {
+      const response = await this.qwenClient.chat.completions.create({
         model: this.qwenModel,
-        input: {
-          messages: [
-            {
-              role: 'system',
-              content: this.getSystemPrompt(language),
-            },
-            {
-              role: 'user',
-              content: prompt,
-            },
-          ],
-        },
-        parameters: {
-          result_format: 'message',
-          temperature: 0.7,
-          max_tokens: 200,
-        },
-      };
+        messages: [
+          {
+            role: 'system',
+            content: this.getSystemPrompt(language),
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        temperature: 0.7,
+        max_tokens: 200,
+      });
 
-      const response = await firstValueFrom(
-        this.httpService
-          .post<QwenResponse>(this.qwenApiUrl, requestBody, {
-            headers: {
-              Authorization: `Bearer ${this.qwenApiKey}`,
-              'Content-Type': 'application/json',
-            },
-          })
-          .pipe(
-            timeout(5000), // 5 second timeout
-            catchError((error) => {
-              this.logger.warn(
-                `Qwen API error for "${placeName}": ${error.message}`,
-              );
-              throw error;
-            }),
-          ),
-      );
-
-      const description = this.extractDescription(response.data);
+      const description = response.choices[0]?.message?.content?.trim();
 
       if (description) {
         this.logger.log(
-          `Generated description for "${placeName}" (${response.data.usage.total_tokens} tokens)`,
+          `Generated description for "${placeName}" (${response.usage?.total_tokens || 0} tokens)`,
         );
         return description;
       }
@@ -196,21 +138,6 @@ The description should be engaging for tourists interested in culture.`;
     }
 
     return this.getSystemPrompt('es');
-  }
-
-  /**
-   * Extract description from Qwen API response
-   */
-  private extractDescription(response: QwenResponse): string | null {
-    if (response.output.choices && response.output.choices.length > 0) {
-      return response.output.choices[0].message.content.trim();
-    }
-
-    if (response.output.text) {
-      return response.output.text.trim();
-    }
-
-    return null;
   }
 
   /**

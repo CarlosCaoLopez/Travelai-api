@@ -3,11 +3,10 @@ import { Injectable } from '@nestjs/common';
 @Injectable()
 export class ImageProcessingService {
   /**
-   * Convert buffer to base64 data URI for AI APIs
+   * Convert buffer to base64 string (without data URI prefix)
    */
-  bufferToBase64(buffer: Buffer, mimeType: string): string {
-    const base64 = buffer.toString('base64');
-    return `data:${mimeType};base64,${base64}`;
+  bufferToBase64(buffer: Buffer): string {
+    return buffer.toString('base64');
   }
 
   /**

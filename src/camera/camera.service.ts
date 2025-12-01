@@ -4,8 +4,7 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { HttpService } from '@nestjs/axios';
-import { firstValueFrom } from 'rxjs';
+import OpenAI from 'openai';
 import { PrismaService } from '../database/prisma.service';
 import { QwenVisionService } from './services/qwen-vision.service';
 import {
@@ -39,12 +38,10 @@ interface ArtworkData {
 export class CameraService {
   private readonly logger = new Logger(CameraService.name);
   private readonly minConfidence: number;
-  private readonly qwenApiKey: string;
-  private readonly qwenApiUrl: string;
+  private readonly qwenClient: OpenAI;
   private readonly qwenModel: string;
 
   constructor(
-    private readonly httpService: HttpService,
     private readonly qwenVisionService: QwenVisionService,
     private readonly googleVisionService: GoogleVisionService,
     private readonly webScraperService: WebScraperService,
@@ -58,9 +55,20 @@ export class CameraService {
       'MIN_CONFIDENCE_THRESHOLD',
       0.6,
     );
-    this.qwenApiKey = this.configService.get<string>('QWEN_API_KEY') || '';
-    this.qwenApiUrl = this.configService.get<string>('QWEN_API_URL') || '';
+
+    // Initialize OpenAI client for Qwen text model
+    const qwenApiKey = this.configService.get<string>('QWEN_API_KEY') || '';
+    const qwenBaseUrl =
+      this.configService.get<string>('QWEN_BASE_URL') ||
+      'https://dashscope.aliyuncs.com/compatible-mode/v1';
     this.qwenModel = this.configService.get<string>('QWEN_MODEL', 'qwen-flash');
+
+    this.qwenClient = new OpenAI({
+      apiKey: qwenApiKey,
+      baseURL: qwenBaseUrl,
+      timeout: 30000, // 30 second timeout for web content analysis
+      maxRetries: 0,
+    });
   }
 
   async recognizeArtwork(
@@ -76,10 +84,7 @@ export class CameraService {
     );
 
     // 1. Convert image to base64
-    const base64Image = this.imageProcessingService.bufferToBase64(
-      imageBuffer,
-      mimeType,
-    );
+    const base64Image = this.imageProcessingService.bufferToBase64(imageBuffer);
 
     // 2. Parallel recognition
     const [qwenResult, visionResult] = await Promise.allSettled([
@@ -227,35 +232,24 @@ export class CameraService {
         language,
       );
 
-      const response = await firstValueFrom(
-        this.httpService.post(
-          this.qwenApiUrl,
+      const response = await this.qwenClient.chat.completions.create({
+        model: this.qwenModel,
+        messages: [
           {
-            model: this.qwenModel,
-            input: {
-              messages: [
-                {
-                  role: 'user',
-                  content: prompt,
-                },
-              ],
-            },
-            parameters: {
-              max_tokens: 1500,
-              temperature: 0.1,
-            },
+            role: 'user',
+            content: prompt,
           },
-          {
-            headers: {
-              Authorization: `Bearer ${this.qwenApiKey}`,
-              'Content-Type': 'application/json',
-            },
-            timeout: 30000,
-          },
-        ),
-      );
+        ],
+        max_tokens: 1500,
+        temperature: 0.1,
+      });
 
-      const content = response.data.output.choices[0].message.content;
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        this.logger.warn('Empty response from Qwen web content analysis');
+        return null;
+      }
+
       return this.parseWebAnalysisResponse(content);
     } catch (error) {
       this.logger.error(`Qwen web content analysis failed: ${error.message}`);
@@ -455,19 +449,21 @@ IMPORTANT :
     artworkData: ArtworkData,
     matchedArtwork: any,
   ): string {
-    // Use isMonument field from AI response (default: false)
-    const isMonument = artworkData.isMonument ?? false;
+    // Check if it's a monument from AI data OR database match
+    const isMonumentFromAI = artworkData.isMonument ?? false;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const isMonumentFromDB = Boolean(matchedArtwork?.isMonument);
+    const isMonument = isMonumentFromAI || isMonumentFromDB;
 
-    if (isMonument && matchedArtwork?.country) {
-      // Use country name for monuments
-      const countryName =
-        matchedArtwork.country.translations?.[0]?.name ||
-        matchedArtwork.country.defaultName;
-      return countryName || 'unknown_country';
+    if (isMonument) {
+      // Use consistent "monuments" folder for all monuments
+      return 'monuments';
     }
 
-    // Default: use artist name (for artworks or monuments without DB match)
-    const artistName =
+    // For artworks, use artist name
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+    const artistName: string =
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       matchedArtwork?.author?.name || artworkData.artist || 'unknown_artist';
 
     return artistName;

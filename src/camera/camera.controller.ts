@@ -5,7 +5,6 @@ import {
   UseInterceptors,
   UseGuards,
   Query,
-  Body,
   BadRequestException,
   InternalServerErrorException,
   PayloadTooLargeException,
@@ -22,6 +21,7 @@ import { DeviceMetadataDto } from './dto/device-metadata.dto';
 import { RecognitionResponseDto } from './dto/recognition-response.dto';
 import { imageFileFilter } from './utils/file-validation';
 import { getMessage } from './constants/messages';
+import { DeviceMetadata } from './decorators/device-metadata.decorator';
 
 @Controller('api/camera')
 @UseGuards(SupabaseAuthGuard)
@@ -45,7 +45,7 @@ export class CameraController {
     @CurrentUser() user: AuthenticatedUser,
     @UploadedFile() file: Express.Multer.File,
     @Query() query: RecognitionQueryDto,
-    @Body() deviceMetadata?: DeviceMetadataDto,
+    @DeviceMetadata() deviceMetadata?: DeviceMetadataDto,
   ): Promise<RecognitionResponseDto> {
     const language = query.language || 'es';
 
