@@ -1,4 +1,10 @@
-import { IsString, IsObject, IsOptional, IsEmail, IsUUID } from 'class-validator';
+import {
+  IsString,
+  IsObject,
+  IsOptional,
+  IsEmail,
+  IsUUID,
+} from 'class-validator';
 
 export class UserMetadata {
   @IsOptional()
@@ -8,6 +14,10 @@ export class UserMetadata {
   @IsOptional()
   @IsString()
   avatarUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  language?: string;
 }
 
 export class UserRecord {

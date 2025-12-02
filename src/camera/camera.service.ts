@@ -60,7 +60,7 @@ export class CameraService {
     const qwenApiKey = this.configService.get<string>('QWEN_API_KEY') || '';
     const qwenBaseUrl =
       this.configService.get<string>('QWEN_BASE_URL') ||
-      'https://dashscope.aliyuncs.com/compatible-mode/v1';
+      'https://dashscope-intl.aliyuncs.com/compatible-mode/v1';
     this.qwenModel = this.configService.get<string>('QWEN_MODEL', 'qwen-flash');
 
     this.qwenClient = new OpenAI({
@@ -83,37 +83,77 @@ export class CameraService {
       `Recognition request from user ${userId}, language: ${language}`,
     );
 
-    // 1. Convert image to base64
+    // 1. Convert image to base64 (original, unprocessed)
     const base64Image = this.imageProcessingService.bufferToBase64(imageBuffer);
+    const processedImageBuffer = imageBuffer;
 
-    // 2. Parallel recognition
-    const [qwenResult, visionResult] = await Promise.allSettled([
+    // 2. NEW FLOW: Parallel calls to Qwen VL and Google Vision
+    this.logger.log('🚀 Starting parallel analysis: Qwen VL + Google Vision...');
+    const [qwenResult, visionResult] = await Promise.all([
       this.qwenVisionService.analyzeArtworkImage(base64Image, language),
       this.googleVisionService.detectWeb(base64Image, language),
     ]);
 
-    // 3. Determine if artwork was identified
     let artworkData: ArtworkData | null = null;
     let identified = false;
 
-    if (qwenResult.status === 'fulfilled' && qwenResult.value.identified) {
-      artworkData = qwenResult.value;
-      identified = artworkData.confidence >= this.minConfidence;
+    // Log results from parallel calls
+    this.logger.log(
+      `📊 Qwen VL result: identified=${qwenResult.identified}, confidence=${qwenResult.confidence}`,
+    );
+    this.logger.log(
+      `📊 Google Vision result: ${visionResult.pagesWithMatchingImages.length} pages with matching images`,
+    );
+    if (visionResult.pagesWithMatchingImages.length > 0) {
       this.logger.log(
-        `Qwen identified: ${identified}, confidence: ${artworkData.confidence}`,
+        `📌 URLs found:\n${visionResult.pagesWithMatchingImages.slice(0, 5).map((page, idx) => `  ${idx + 1}. ${page.url}`).join('\n')}${visionResult.pagesWithMatchingImages.length > 5 ? `\n  ... and ${visionResult.pagesWithMatchingImages.length - 5} more` : ''}`,
       );
     }
 
-    // Fallback to Vision + web scraping + Qwen text analysis
-    if (!identified && visionResult.status === 'fulfilled') {
-      this.logger.log('Attempting fallback: Vision + web scraping + Qwen text');
-      artworkData = await this.fallbackWebScraping(
-        visionResult.value,
-        language,
+    // 3. Evaluate Qwen VL result first (HIGH CONFIDENCE CHECK)
+    const QWEN_VL_HIGH_CONFIDENCE = 0.98;
+    if (qwenResult.identified && qwenResult.confidence >= QWEN_VL_HIGH_CONFIDENCE) {
+      artworkData = qwenResult;
+      identified = true;
+      this.logger.log(
+        `✅ HIGH CONFIDENCE identification via Qwen VL: "${artworkData.title}", confidence: ${artworkData.confidence}`,
       );
-      identified =
-        artworkData !== null && artworkData.confidence >= this.minConfidence;
-      this.logger.log(`Fallback identified: ${identified}`);
+    } else {
+      // 4. Fallback: Enhanced Web Scraping with Qwen Flash
+      if (qwenResult.identified) {
+        this.logger.log(
+          `⚠️ Qwen VL confidence too low (${qwenResult.confidence} < ${QWEN_VL_HIGH_CONFIDENCE}), falling back to web scraping...`,
+        );
+      } else {
+        this.logger.log(
+          `⚠️ Qwen VL could not identify artwork, falling back to web scraping...`,
+        );
+      }
+
+      if (visionResult.pagesWithMatchingImages.length > 0) {
+        this.logger.log(
+          `🔍 Attempting enhanced web scraping with ${visionResult.pagesWithMatchingImages.length} URLs...`,
+        );
+        artworkData = await this.fallbackEnhancedWebScraping(
+          visionResult,
+          qwenResult,
+          language,
+        );
+        identified =
+          artworkData !== null && artworkData.confidence >= this.minConfidence;
+
+        if (identified) {
+          this.logger.log(
+            `✅ Identified via Enhanced Web Scraping: "${artworkData?.title}", confidence: ${artworkData?.confidence}`,
+          );
+        } else {
+          this.logger.log(
+            `❌ Enhanced web scraping failed to identify with sufficient confidence`,
+          );
+        }
+      } else {
+        this.logger.log('❌ No URLs found by Google Vision for web scraping');
+      }
     }
 
     // 4. DECISION POINT: Only proceed if identified
@@ -144,8 +184,9 @@ export class CameraService {
     );
 
     // Upload with organized folder structure: artworks/{userId}/{artistOrCountry}/{filename}
+    // Use processedImageBuffer (cropped if object was detected, original otherwise)
     const storagePath = await this.storageService.uploadRecognizedArtwork(
-      imageBuffer,
+      processedImageBuffer,
       filename,
       mimeType,
       userId,
@@ -178,38 +219,50 @@ export class CameraService {
     }
   }
 
-  private async fallbackWebScraping(
+  /**
+   * Enhanced fallback: Web scraping with Qwen Flash
+   * Uses ALL URLs from Google Vision (no Qwen VL context)
+   */
+  private async fallbackEnhancedWebScraping(
     visionData: WebDetection,
+    qwenVLResult: ArtworkData,
     language: string,
   ): Promise<ArtworkData | null> {
-    // Get top URLs (prioritize museum/Wikipedia)
-    const urls = this.webScraperService
-      .prioritizeArtUrls(visionData.pagesWithMatchingImages.slice(0, 5))
-      .slice(0, 3);
+    // Get ALL URLs (prioritize museum/Wikipedia, but include more)
+    const allUrls = this.webScraperService.prioritizeArtUrls(
+      visionData.pagesWithMatchingImages,
+    );
+    // Limit to first 10 URLs to avoid excessive scraping time
+    const urls = allUrls.slice(0, 10);
 
     if (urls.length === 0) {
       this.logger.log('No matching pages found');
       return null;
     }
 
-    this.logger.log(`Scraping ${urls.length} URLs`);
+    this.logger.log(`📡 Scraping ${urls.length} URLs in parallel...`);
 
     // Scrape web pages
     const htmlResults = await this.webScraperService.fetchMultipleUrls(urls);
-    const combinedText = htmlResults
-      .filter((r) => r.html)
+    const successfulScrapes = htmlResults.filter((r) => r.html);
+    this.logger.log(
+      `✅ Successfully scraped ${successfulScrapes.length}/${urls.length} URLs`,
+    );
+
+    const combinedText = successfulScrapes
       .map((r) => this.webScraperService.extractCleanText(r.html || ''))
       .join('\n\n');
 
     if (!combinedText || combinedText.length < 100) {
-      this.logger.log('Insufficient content from web scraping');
+      this.logger.log('⚠️ Insufficient content from web scraping');
       return null;
     }
 
-    // Use Qwen Flash (text model) to analyze the scraped content
-    this.logger.log('Analyzing scraped content with Qwen Flash');
-    const artworkInfo = await this.analyzeWebContentForArtwork(
+    // Use enhanced Qwen Flash analysis with URLs (NO Qwen VL context)
+    this.logger.log('🤖 Analyzing with Qwen Flash (enhanced with URLs)...');
+    const artworkInfo = await this.analyzeWebContentForArtworkEnhanced(
       combinedText,
+      urls,
       visionData.bestGuessLabels,
       language,
     );
@@ -218,18 +271,28 @@ export class CameraService {
   }
 
   /**
-   * Use Qwen Flash (text model) to identify artwork from web content
+   * Enhanced Qwen Flash analysis with raw URLs from Google Vision
+   * Does NOT include Qwen VL context
    */
-  private async analyzeWebContentForArtwork(
+  private async analyzeWebContentForArtworkEnhanced(
     webContent: string,
+    rawUrls: string[],
     bestGuessLabels: Array<{ label: string; languageCode?: string }>,
     language: string,
   ): Promise<ArtworkData | null> {
     try {
-      const prompt = this.buildWebAnalysisPrompt(
+      const prompt = this.buildEnhancedWebAnalysisPrompt(
         webContent,
+        rawUrls,
         bestGuessLabels,
         language,
+      );
+
+      this.logger.log('📤 Sending enhanced request to Qwen Flash...');
+      this.logger.log(`  Web content length: ${webContent.length} characters`);
+      this.logger.log(`  Number of URLs: ${rawUrls.length}`);
+      this.logger.log(
+        `  Best guess labels: ${bestGuessLabels.map((l) => l.label).join(', ')}`,
       );
 
       const response = await this.qwenClient.chat.completions.create({
@@ -246,35 +309,66 @@ export class CameraService {
 
       const content = response.choices[0]?.message?.content;
       if (!content) {
-        this.logger.warn('Empty response from Qwen web content analysis');
+        this.logger.warn('Empty response from Qwen enhanced web analysis');
         return null;
       }
 
-      return this.parseWebAnalysisResponse(content);
+      this.logger.log('📥 Raw response from Qwen Flash (enhanced):');
+      this.logger.log(`${content}`);
+
+      const parsedResult = this.parseWebAnalysisResponse(content);
+
+      if (parsedResult) {
+        this.logger.log('✅ Parsed enhanced Qwen Flash result:');
+        this.logger.log(`  identified: ${parsedResult.identified}`);
+        this.logger.log(`  confidence: ${parsedResult.confidence}`);
+        this.logger.log(`  title: ${parsedResult.title || 'N/A'}`);
+        this.logger.log(`  artist: ${parsedResult.artist || 'N/A'}`);
+        this.logger.log(`  isMonument: ${parsedResult.isMonument || false}`);
+        this.logger.log(`  country: ${parsedResult.country || 'N/A'}`);
+      } else {
+        this.logger.warn('⚠️ Failed to parse enhanced Qwen Flash response');
+      }
+
+      return parsedResult;
     } catch (error) {
-      this.logger.error(`Qwen web content analysis failed: ${error.message}`);
+      this.logger.error(
+        `Qwen enhanced web analysis failed: ${error.message}`,
+      );
       return null;
     }
   }
 
-  private buildWebAnalysisPrompt(
+  /**
+   * Build enhanced prompt with raw URLs included
+   */
+  private buildEnhancedWebAnalysisPrompt(
     webContent: string,
+    rawUrls: string[],
     bestGuessLabels: Array<{ label: string; languageCode?: string }>,
     language: string,
   ): string {
     const hints = bestGuessLabels.map((l) => l.label).join(', ');
+    const urlsList = rawUrls
+      .map((url, idx) => `${idx + 1}. ${url}`)
+      .join('\n');
 
     const prompts = {
       es: `Eres un historiador de arte experto con amplio conocimiento sobre obras de arte mundiales. Tu especialidad es identificar y proporcionar información precisa, verificable y concisa sobre pinturas, esculturas, arquitectura y monumentos.
 
 Tu misión es encontrar e identificar una obra de arte específica a partir de la información obtenida de realizar la búsqueda de una imagen en la web.
 
+URLS ENCONTRADAS EN LA WEB (${rawUrls.length} fuentes):
+${urlsList}
+
 PISTAS DE LA BÚSQUEDA WEB: ${hints || 'No disponibles'}
 
 INFORMACIÓN EXTRAÍDA DE LAS PÁGINAS WEB:
 ${webContent}
 
-Analiza cuidadosamente esta información. Si reconoces una obra de arte específica, responde con un objeto JSON válido con este formato exacto:
+Analiza cuidadosamente esta información. Las URLs proporcionadas pueden indicar la fuente y veracidad de la información. Prioriza información de fuentes confiables como museos, Wikipedia, y sitios culturales reconocidos.
+
+Si reconoces una obra de arte específica, responde con un objeto JSON válido con este formato exacto:
 
 {
   "identified": true,
@@ -304,6 +398,7 @@ IMPORTANTE:
 - Prioriza la precisión sobre la completitud
 - El campo "confidence" debe reflejar tu nivel de certeza (0.0-1.0)
 - Como esta es información indirecta (de páginas web), el "confidence" debería ser menor a 0.8
+- Considera la reputación de las fuentes (URLs) al asignar el nivel de confianza
 - El campo "isMonument" es OBLIGATORIO y debe ser un booleano:
   * true: SOLO para estructuras arquitectónicas físicas (catedrales, torres, puentes, castillos, palacios, templos, edificios históricos, arcos monumentales)
   * false: Para pinturas, esculturas, obras de arte tradicionales (aunque representen arquitectura)
@@ -316,12 +411,17 @@ IMPORTANTE:
 
 Your mission is to find and identify a specific artwork from the information obtained by performing a web search of an image.
 
+URLS FOUND ON THE WEB (${rawUrls.length} sources):
+${urlsList}
+
 WEB SEARCH HINTS: ${hints || 'Not available'}
 
 INFORMATION EXTRACTED FROM WEB PAGES:
 ${webContent}
 
-Carefully analyze this information. If you recognize a specific artwork, respond with a valid JSON object in this exact format:
+Carefully analyze this information. The URLs provided can indicate the source and veracity of the information. Prioritize information from trusted sources such as museums, Wikipedia, and recognized cultural sites.
+
+If you recognize a specific artwork, respond with a valid JSON object in this exact format:
 
 {
   "identified": true,
@@ -351,6 +451,7 @@ IMPORTANT:
 - Prioritize accuracy over completeness
 - The "confidence" field should reflect your level of certainty (0.0-1.0)
 - Since this is indirect information (from web pages), "confidence" should be less than 0.8
+- Consider the reputation of sources (URLs) when assigning confidence level
 - The "isMonument" field is REQUIRED and must be a boolean:
   * true: ONLY for physical architectural structures (cathedrals, towers, bridges, castles, palaces, temples, historic buildings, monumental arches)
   * false: For paintings, sculptures, traditional artworks (even if they depict architecture)
@@ -363,12 +464,17 @@ IMPORTANT:
 
 Votre mission est de trouver et identifier une œuvre d'art spécifique à partir des informations obtenues en effectuant une recherche web d'une image.
 
+URLS TROUVÉES SUR LE WEB (${rawUrls.length} sources) :
+${urlsList}
+
 INDICES DE LA RECHERCHE WEB : ${hints || 'Non disponibles'}
 
 INFORMATIONS EXTRAITES DES PAGES WEB :
 ${webContent}
 
-Analysez attentivement ces informations. Si vous reconnaissez une œuvre d'art spécifique, répondez avec un objet JSON valide dans ce format exact :
+Analysez attentivement ces informations. Les URLs fournies peuvent indiquer la source et la véracité de l'information. Priorisez les informations provenant de sources fiables telles que les musées, Wikipédia et les sites culturels reconnus.
+
+Si vous reconnaissez une œuvre d'art spécifique, répondez avec un objet JSON valide dans ce format exact :
 
 {
   "identified": true,
@@ -398,6 +504,7 @@ IMPORTANT :
 - Priorisez la précision plutôt que l'exhaustivité
 - Le champ "confidence" doit refléter votre niveau de certitude (0.0-1.0)
 - Comme ce sont des informations indirectes (de pages web), "confidence" devrait être inférieur à 0.8
+- Considérez la réputation des sources (URLs) lors de l'attribution du niveau de confiance
 - Le champ "isMonument" est OBLIGATOIRE et doit être un booléen :
   * true: UNIQUEMENT pour les structures architecturales physiques (cathédrales, tours, ponts, châteaux, palais, temples, bâtiments historiques, arcs monumentaux)
   * false: Pour les peintures, sculptures, œuvres d'art traditionnelles (même si elles représentent de l'architecture)
@@ -461,7 +568,7 @@ IMPORTANT :
     }
 
     // For artworks, use artist name
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const artistName: string =
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       matchedArtwork?.author?.name || artworkData.artist || 'unknown_artist';

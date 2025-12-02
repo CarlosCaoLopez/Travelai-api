@@ -111,13 +111,19 @@ export class QwenVisionService {
 
       // Log the response body if available (for API errors)
       if (error.response) {
-        this.logger.error(`  Response Headers: ${JSON.stringify(error.response.headers)}`);
-        this.logger.error(`  Response Body: ${JSON.stringify(error.response.data)}`);
+        this.logger.error(
+          `  Response Headers: ${JSON.stringify(error.response.headers)}`,
+        );
+        this.logger.error(
+          `  Response Body: ${JSON.stringify(error.response.data)}`,
+        );
       }
 
       // Log the full error object for maximum debugging info
       if (error.error) {
-        this.logger.error(`  API Error Details: ${JSON.stringify(error.error)}`);
+        this.logger.error(
+          `  API Error Details: ${JSON.stringify(error.error)}`,
+        );
       }
 
       // Log the request details (without sensitive data)

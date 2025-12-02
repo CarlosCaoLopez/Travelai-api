@@ -14,6 +14,12 @@ components:
       scheme: bearer
       bearerFormat: JWT
 
+    webhookSecret:
+      type: apiKey
+      in: header
+      name: x-webhook-secret
+      description: Secret key for validating Supabase webhook requests
+
   schemas:
     # --- Common Types ---
     UUID:
@@ -280,6 +286,146 @@ components:
           type: string
           example: "Artwork successfully identified and saved to collection"
           description: "Mensaje descriptivo del resultado para el usuario"
+
+    # --- Users ---
+    User:
+      type: object
+      description: "Datos del perfil del usuario"
+      required:
+        - id
+        - email
+        - preferred_language
+        - is_premium
+        - created_at
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+          description: "UUID del usuario (mismo que en Supabase Auth)"
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        display_name:
+          type: string
+          example: "John Doe"
+          nullable: true
+          description: "Nombre visible del usuario"
+        avatar_url:
+          type: string
+          format: uri
+          example: "https://example.com/avatar.jpg"
+          nullable: true
+          description: "URL de la foto de perfil"
+        preferred_language:
+          type: string
+          enum: [es, en]
+          example: "es"
+          description: "Idioma preferido del usuario (detectado automáticamente al registrarse)"
+        is_premium:
+          type: boolean
+          example: false
+          description: "Indica si el usuario tiene suscripción premium activa"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-12-01T20:00:00Z"
+          description: "Fecha de creación de la cuenta"
+
+    UpdateUserRequest:
+      type: object
+      description: "Datos para actualizar el perfil del usuario"
+      properties:
+        display_name:
+          type: string
+          example: "Jane Smith"
+          nullable: true
+        avatar_url:
+          type: string
+          format: uri
+          example: "https://example.com/new-avatar.jpg"
+          nullable: true
+        preferred_language:
+          type: string
+          enum: [es, en]
+          example: "en"
+          description: "Cambiar idioma preferido del usuario"
+
+    # --- Webhooks ---
+    SupabaseWebhookPayload:
+      type: object
+      description: "Payload enviado por Supabase cuando se crea un nuevo usuario"
+      required:
+        - type
+        - table
+        - record
+        - schema
+      properties:
+        type:
+          type: string
+          enum: [INSERT, UPDATE, DELETE]
+          example: "INSERT"
+          description: "Tipo de evento de base de datos"
+        table:
+          type: string
+          example: "users"
+          description: "Nombre de la tabla afectada"
+        record:
+          type: object
+          description: "Datos del usuario creado en Supabase Auth"
+          required:
+            - id
+            - email
+          properties:
+            id:
+              $ref: '#/components/schemas/UUID'
+              description: "UUID del usuario en Supabase Auth (usarlo como PK en tabla local)"
+            email:
+              type: string
+              format: email
+              example: "user@example.com"
+            raw_user_meta_data:
+              type: object
+              description: "Metadata adicional del perfil del usuario"
+              properties:
+                displayName:
+                  type: string
+                  example: "John Doe"
+                  nullable: true
+                avatarUrl:
+                  type: string
+                  format: uri
+                  example: "https://example.com/avatar.jpg"
+                  nullable: true
+                language:
+                  type: string
+                  enum: [es, en]
+                  example: "es"
+                  description: "Idioma detectado del dispositivo al momento del registro"
+                  nullable: false
+            created_at:
+              type: string
+              format: date-time
+              example: "2025-12-01T20:00:00Z"
+        schema:
+          type: string
+          example: "auth"
+          description: "Schema de la base de datos (siempre 'auth' para usuarios de Supabase)"
+        old_record:
+          type: object
+          nullable: true
+          description: "Registro anterior (null para INSERT events)"
+
+    WebhookSuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "User created successfully"
+        userId:
+          $ref: '#/components/schemas/UUID'
 
 paths:
   # ----------------------------
@@ -840,3 +986,241 @@ paths:
                     $ref: '#/components/schemas/UUID'
                   updatedStats:
                     $ref: '#/components/schemas/CollectionStats'
+
+  # ----------------------------
+  # USERS
+  # ----------------------------
+  /api/users/me:
+    get:
+      tags:
+        - Users
+      summary: Obtener perfil del usuario autenticado
+      description: |
+        Retorna la información del perfil del usuario actual.
+
+        **Uso en la app:**
+        - Se llama automáticamente después del login para sincronizar datos con SQLite local
+        - Los datos se cachean localmente para acceso offline
+        - El backend es la fuente de verdad para el perfil del usuario
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Perfil del usuario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+              example:
+                id: "550e8400-e29b-41d4-a716-446655440000"
+                email: "user@example.com"
+                display_name: "John Doe"
+                avatar_url: "https://example.com/avatar.jpg"
+                preferred_language: "es"
+                is_premium: false
+                created_at: "2025-12-01T20:00:00Z"
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "Unauthorized"
+                message: "No authentication token provided"
+
+    patch:
+      tags:
+        - Users
+      summary: Actualizar perfil del usuario autenticado
+      description: |
+        Actualiza la información del perfil del usuario actual.
+
+        **Campos actualizables:**
+        - `display_name`: Nombre visible del usuario
+        - `avatar_url`: URL de la foto de perfil
+        - `preferred_language`: Idioma preferido (es/en)
+
+        **Notas:**
+        - Solo se actualizan los campos proporcionados (PATCH parcial)
+        - El cambio de idioma afecta el contenido personalizado (quotes, descripciones)
+        - La app debe sincronizar los cambios con SQLite local después de actualizar
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+            examples:
+              update_language:
+                summary: Cambiar idioma preferido
+                value:
+                  preferred_language: "en"
+              update_profile:
+                summary: Actualizar nombre y avatar
+                value:
+                  display_name: "Jane Smith"
+                  avatar_url: "https://example.com/new-avatar.jpg"
+              update_all:
+                summary: Actualizar todos los campos
+                value:
+                  display_name: "Jane Smith"
+                  avatar_url: "https://example.com/new-avatar.jpg"
+                  preferred_language: "en"
+      responses:
+        '200':
+          description: Perfil actualizado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+              example:
+                id: "550e8400-e29b-41d4-a716-446655440000"
+                email: "user@example.com"
+                display_name: "Jane Smith"
+                avatar_url: "https://example.com/new-avatar.jpg"
+                preferred_language: "en"
+                is_premium: false
+                created_at: "2025-12-01T20:00:00Z"
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "Validation Error"
+                message: "preferred_language must be 'es' or 'en'"
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "Unauthorized"
+                message: "No authentication token provided"
+
+  # ----------------------------
+  # WEBHOOKS
+  # ----------------------------
+  /api/webhooks/supabase/user-created:
+    post:
+      tags:
+        - Webhooks
+      summary: Webhook para sincronizar usuarios de Supabase Auth
+      description: |
+        Endpoint llamado automáticamente por Supabase cuando se crea un nuevo usuario.
+        Sincroniza el usuario de Supabase Auth con la tabla local de usuarios en Postgres.
+
+        **Configuración en Supabase:**
+        1. Dashboard → Authentication → Webhooks
+        2. Crear webhook para evento "User Created" (INSERT on auth.users)
+        3. URL: https://api.artexplorer.com/api/webhooks/supabase/user-created
+        4. Agregar header: x-webhook-secret con el valor de SUPABASE_WEBHOOK_SECRET
+
+        **Comportamiento:**
+        - Crea usuario en tabla local con el mismo UUID de Supabase Auth
+        - Extrae email y metadata del perfil (displayName, avatarUrl, language)
+        - Es idempotente: llamadas duplicadas son seguras
+        - Valida secret para prevenir acceso no autorizado
+      security:
+        - webhookSecret: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SupabaseWebhookPayload'
+            examples:
+              user_created:
+                summary: Usuario creado con metadata completa (email signup)
+                value:
+                  type: "INSERT"
+                  table: "users"
+                  record:
+                    id: "550e8400-e29b-41d4-a716-446655440000"
+                    email: "john.doe@example.com"
+                    raw_user_meta_data:
+                      displayName: "John Doe"
+                      avatarUrl: "https://example.com/avatar.jpg"
+                      language: "es"
+                    created_at: "2025-12-01T20:00:00Z"
+                  schema: "auth"
+                  old_record: null
+              user_created_anonymous:
+                summary: Usuario anónimo (free trial) creado desde dispositivo
+                value:
+                  type: "INSERT"
+                  table: "users"
+                  record:
+                    id: "650e8400-e29b-41d4-a716-446655440001"
+                    email: "device-abc123@freetrial.travelai.app"
+                    raw_user_meta_data:
+                      user_type: "free_trial"
+                      device_id: "abc123-device-uuid"
+                      platform: "ios"
+                      is_anonymous: true
+                      language: "en"
+                      created_at: "2025-12-03T10:00:00Z"
+                    created_at: "2025-12-03T10:00:00Z"
+                  schema: "auth"
+                  old_record: null
+              user_created_minimal:
+                summary: Usuario creado sin metadata opcional (OAuth fallback)
+                value:
+                  type: "INSERT"
+                  table: "users"
+                  record:
+                    id: "550e8400-e29b-41d4-a716-446655440000"
+                    email: "jane.doe@example.com"
+                    raw_user_meta_data: null
+                    created_at: "2025-12-01T20:00:00Z"
+                  schema: "auth"
+                  old_record: null
+      responses:
+        '200':
+          description: Usuario sincronizado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookSuccessResponse'
+              example:
+                success: true
+                message: "User created successfully"
+                userId: "550e8400-e29b-41d4-a716-446655440000"
+        '400':
+          description: Payload inválido o datos faltantes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "invalid_payload"
+                message: "Missing required field: record.id"
+        '401':
+          description: Webhook secret inválido o faltante
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "unauthorized"
+                message: "Invalid or missing webhook secret"
+        '500':
+          description: Error interno al crear usuario en base de datos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: "internal_server_error"
+                message: "Failed to create user in database"

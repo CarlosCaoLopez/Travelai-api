@@ -14,6 +14,7 @@ import { ArtworksModule } from './artworks/artworks.module';
 import { UserCollectionModule } from './user-collection/user-collection.module';
 import { CameraModule } from './camera/camera.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
     UserCollectionModule,
     CameraModule,
     WebhooksModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -13,7 +13,7 @@ interface FetchResult {
 @Injectable()
 export class WebScraperService {
   private readonly logger = new Logger(WebScraperService.name);
-  private readonly maxContentSize = 500000; // 500KB
+  private readonly maxContentSize = 5000000; // 5000KB
 
   constructor(private readonly httpService: HttpService) {}
 

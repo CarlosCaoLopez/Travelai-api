@@ -50,7 +50,7 @@ export class WebhooksService {
           email,
           displayName: raw_user_meta_data?.displayName || null,
           avatarUrl: raw_user_meta_data?.avatarUrl || null,
-          preferredLanguage: 'es',
+          preferredLanguage: raw_user_meta_data?.language || 'es',
           isPremium: false,
         },
       });
