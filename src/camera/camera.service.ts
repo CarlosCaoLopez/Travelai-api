@@ -88,7 +88,9 @@ export class CameraService {
     const processedImageBuffer = imageBuffer;
 
     // 2. NEW FLOW: Parallel calls to Qwen VL and Google Vision
-    this.logger.log('🚀 Starting parallel analysis: Qwen VL + Google Vision...');
+    this.logger.log(
+      '🚀 Starting parallel analysis: Qwen VL + Google Vision...',
+    );
     const [qwenResult, visionResult] = await Promise.all([
       this.qwenVisionService.analyzeArtworkImage(base64Image, language),
       this.googleVisionService.detectWeb(base64Image, language),
@@ -106,13 +108,21 @@ export class CameraService {
     );
     if (visionResult.pagesWithMatchingImages.length > 0) {
       this.logger.log(
-        `📌 URLs found:\n${visionResult.pagesWithMatchingImages.slice(0, 5).map((page, idx) => `  ${idx + 1}. ${page.url}`).join('\n')}${visionResult.pagesWithMatchingImages.length > 5 ? `\n  ... and ${visionResult.pagesWithMatchingImages.length - 5} more` : ''}`,
+        `📌 URLs found:\n${visionResult.pagesWithMatchingImages
+          .slice(0, 5)
+          .map((page, idx) => `  ${idx + 1}. ${page.url}`)
+          .join(
+            '\n',
+          )}${visionResult.pagesWithMatchingImages.length > 5 ? `\n  ... and ${visionResult.pagesWithMatchingImages.length - 5} more` : ''}`,
       );
     }
 
     // 3. Evaluate Qwen VL result first (HIGH CONFIDENCE CHECK)
-    const QWEN_VL_HIGH_CONFIDENCE = 0.98;
-    if (qwenResult.identified && qwenResult.confidence >= QWEN_VL_HIGH_CONFIDENCE) {
+    const QWEN_VL_HIGH_CONFIDENCE = 0.99;
+    if (
+      qwenResult.identified &&
+      qwenResult.confidence >= QWEN_VL_HIGH_CONFIDENCE
+    ) {
       artworkData = qwenResult;
       identified = true;
       this.logger.log(
@@ -332,9 +342,7 @@ export class CameraService {
 
       return parsedResult;
     } catch (error) {
-      this.logger.error(
-        `Qwen enhanced web analysis failed: ${error.message}`,
-      );
+      this.logger.error(`Qwen enhanced web analysis failed: ${error.message}`);
       return null;
     }
   }
@@ -349,9 +357,7 @@ export class CameraService {
     language: string,
   ): string {
     const hints = bestGuessLabels.map((l) => l.label).join(', ');
-    const urlsList = rawUrls
-      .map((url, idx) => `${idx + 1}. ${url}`)
-      .join('\n');
+    const urlsList = rawUrls.map((url, idx) => `${idx + 1}. ${url}`).join('\n');
 
     const prompts = {
       es: `Eres un historiador de arte experto con amplio conocimiento sobre obras de arte mundiales. Tu especialidad es identificar y proporcionar información precisa, verificable y concisa sobre pinturas, esculturas, arquitectura y monumentos.

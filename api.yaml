@@ -25,8 +25,8 @@ components:
     UUID:
       type: string
       format: uuid
-      example: "550e8400-e29b-41d4-a716-446655440000"
-    
+      example: '550e8400-e29b-41d4-a716-446655440000'
+
     CategoryObject:
       type: object
       properties:
@@ -36,7 +36,70 @@ components:
           type: string
         icon:
           type: string
-    
+
+    CategoryWithRelations:
+      type: object
+      description: 'Categoría con su jerarquía de relaciones (padres e hijos)'
+      required:
+        - id
+        - name
+        - type
+        - icon
+        - sortOrder
+        - parentIds
+        - childIds
+        - updatedAt
+      properties:
+        id:
+          type: string
+          example: 'pintura'
+          description: 'ID único de la categoría'
+        name:
+          type: string
+          description: 'Nombre localizado de la categoría según el parámetro language'
+          example: 'Pintura'
+        type:
+          type: string
+          enum: [category, subcategory]
+          example: 'category'
+          description: "Tipo de categoría: 'category' (principal) o 'subcategory' (período artístico)"
+        icon:
+          type: string
+          description: 'Emoji que representa la categoría'
+          example: '🎨'
+        imageUrl:
+          type: string
+          nullable: true
+          description: 'URL opcional de imagen representativa'
+          example: null
+        sortOrder:
+          type: integer
+          example: 1
+          description: 'Orden de visualización (menor = primero)'
+        parentIds:
+          type: array
+          items:
+            type: string
+          description: 'IDs de las categorías padre (vacío para categorías principales)'
+          example: []
+        childIds:
+          type: array
+          items:
+            type: string
+          description: 'IDs de las subcategorías hijas (vacío para subcategorías)'
+          example:
+            [
+              'antiguedad-romana-griega',
+              'renacimiento',
+              'barroco',
+              'impresionismo-postimpresionismo',
+            ]
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2025-12-04T10:30:00Z'
+          description: 'Última actualización para sincronización incremental'
+
     # --- Home Screen ---
     Quote:
       type: object
@@ -45,10 +108,10 @@ components:
           $ref: '#/components/schemas/UUID'
         text:
           type: string
-          example: "El arte es la mentira que nos permite conocer la verdad"
+          example: 'El arte es la mentira que nos permite conocer la verdad'
         author:
           type: string
-          example: "Pablo Picasso"
+          example: 'Pablo Picasso'
 
     # --- Explore/Locations ---
     LocationSpot:
@@ -67,7 +130,7 @@ components:
           description: Distancia en metros
         estimatedTime:
           type: string
-    
+
     # --- Artworks (Catalog) ---
     Artwork:
       type: object
@@ -193,10 +256,10 @@ components:
           example: false
         error:
           type: string
-          example: "Invalid image format"
+          example: 'Invalid image format'
         message:
           type: string
-          example: "The uploaded file must be a valid JPG, PNG, or HEIC image"
+          example: 'The uploaded file must be a valid JPG, PNG, or HEIC image'
 
     RecognizeArtworkRequest:
       type: object
@@ -206,64 +269,71 @@ components:
         image:
           type: string
           format: binary
-          description: "Imagen capturada del monumento u obra de arte (JPG, PNG, HEIC - máximo 10MB)"
+          description: 'Imagen capturada del monumento u obra de arte (JPG, PNG, HEIC - máximo 10MB)'
         device_metadata:
           type: object
-          description: "Metadata opcional del dispositivo para analytics"
+          description: 'Metadata opcional del dispositivo para analytics'
           properties:
             platform:
               type: string
               enum: [ios, android]
-              example: "ios"
+              example: 'ios'
             app_version:
               type: string
-              example: "1.0.0"
+              example: '1.0.0'
 
     RecognizedArtworkData:
       type: object
-      description: "Datos de la obra identificada - null si no se pudo identificar"
+      description: 'Datos de la obra identificada - null si no se pudo identificar'
       nullable: true
       properties:
         id:
           $ref: '#/components/schemas/UUID'
         title:
           type: string
-          example: "Las Meninas"
+          example: 'Las Meninas'
         artist:
           type: string
-          example: "Diego Velázquez"
+          example: 'Diego Velázquez'
         year:
           type: string
-          example: "1656"
+          example: '1656'
         period:
           type: string
-          example: "Spanish Baroque"
-          description: "Período artístico o movimiento"
+          example: 'Spanish Baroque'
+          description: 'Período artístico o movimiento'
         description:
           type: string
-          example: "One of the masterpieces of the Spanish Golden Age. It shows Infanta Margaret surrounded by her ladies-in-waiting (meninas) and other members of the court, including the painter himself. The complex composition with multiple viewpoints, the masterful use of light, and the mirror reflecting King Philip IV and Queen Mariana of Austria, challenge the perception of space and reality."
+          example: 'One of the masterpieces of the Spanish Golden Age. It shows Infanta Margaret surrounded by her ladies-in-waiting (meninas) and other members of the court, including the painter himself. The complex composition with multiple viewpoints, the masterful use of light, and the mirror reflecting King Philip IV and Queen Mariana of Austria, challenge the perception of space and reality.'
         confidence:
           type: number
           format: float
           minimum: 0
           maximum: 1
           example: 0.98
-          description: "Nivel de confianza del reconocimiento (0.0 - 1.0)"
+          description: 'Nivel de confianza del reconocimiento (0.0 - 1.0)'
         tags:
           type: array
           items:
             type: string
-          example: ["Spanish Baroque", "Court Portrait", "Oil on Canvas", "17th Century", "Prado Museum"]
-          description: "Categorías, estilos y metadata adicional"
+          example:
+            [
+              'Spanish Baroque',
+              'Court Portrait',
+              'Oil on Canvas',
+              '17th Century',
+              'Prado Museum',
+            ]
+          description: 'Categorías, estilos y metadata adicional'
         capturedImageUrl:
           type: string
           format: uri
-          example: "https://storage.artexplorer.com/captures/user123/abc123.jpg"
-          description: "URL de la imagen capturada almacenada en el servidor"
+          example: 'https://storage.artexplorer.com/captures/user123/abc123.jpg'
+          description: 'URL de la imagen capturada almacenada en el servidor'
         identifiedAt:
           type: string
           format: date-time
-          example: "2025-11-30T14:30:00Z"
+          example: '2025-11-30T14:30:00Z'
 
     RecognizedArtworkResponse:
       type: object
@@ -271,26 +341,26 @@ components:
         success:
           type: boolean
           example: true
-          description: "Indica si la operación fue exitosa a nivel técnico"
+          description: 'Indica si la operación fue exitosa a nivel técnico'
         identified:
           type: boolean
           example: true
-          description: "Indica si la obra fue identificada por la IA (true) o no se pudo reconocer (false)"
+          description: 'Indica si la obra fue identificada por la IA (true) o no se pudo reconocer (false)'
         artwork:
           $ref: '#/components/schemas/RecognizedArtworkData'
         savedToCollection:
           type: boolean
           example: true
-          description: "Indica si la obra se guardó en la colección del usuario (solo true si identified=true)"
+          description: 'Indica si la obra se guardó en la colección del usuario (solo true si identified=true)'
         message:
           type: string
-          example: "Artwork successfully identified and saved to collection"
-          description: "Mensaje descriptivo del resultado para el usuario"
+          example: 'Artwork successfully identified and saved to collection'
+          description: 'Mensaje descriptivo del resultado para el usuario'
 
     # --- Users ---
     User:
       type: object
-      description: "Datos del perfil del usuario"
+      description: 'Datos del perfil del usuario'
       required:
         - id
         - email
@@ -300,60 +370,60 @@ components:
       properties:
         id:
           $ref: '#/components/schemas/UUID'
-          description: "UUID del usuario (mismo que en Supabase Auth)"
+          description: 'UUID del usuario (mismo que en Supabase Auth)'
         email:
           type: string
           format: email
-          example: "user@example.com"
+          example: 'user@example.com'
         display_name:
           type: string
-          example: "John Doe"
+          example: 'John Doe'
           nullable: true
-          description: "Nombre visible del usuario"
+          description: 'Nombre visible del usuario'
         avatar_url:
           type: string
           format: uri
-          example: "https://example.com/avatar.jpg"
+          example: 'https://example.com/avatar.jpg'
           nullable: true
-          description: "URL de la foto de perfil"
+          description: 'URL de la foto de perfil'
         preferred_language:
           type: string
           enum: [es, en]
-          example: "es"
-          description: "Idioma preferido del usuario (detectado automáticamente al registrarse)"
+          example: 'es'
+          description: 'Idioma preferido del usuario (detectado automáticamente al registrarse)'
         is_premium:
           type: boolean
           example: false
-          description: "Indica si el usuario tiene suscripción premium activa"
+          description: 'Indica si el usuario tiene suscripción premium activa'
         created_at:
           type: string
           format: date-time
-          example: "2025-12-01T20:00:00Z"
-          description: "Fecha de creación de la cuenta"
+          example: '2025-12-01T20:00:00Z'
+          description: 'Fecha de creación de la cuenta'
 
     UpdateUserRequest:
       type: object
-      description: "Datos para actualizar el perfil del usuario"
+      description: 'Datos para actualizar el perfil del usuario'
       properties:
         display_name:
           type: string
-          example: "Jane Smith"
+          example: 'Jane Smith'
           nullable: true
         avatar_url:
           type: string
           format: uri
-          example: "https://example.com/new-avatar.jpg"
+          example: 'https://example.com/new-avatar.jpg'
           nullable: true
         preferred_language:
           type: string
           enum: [es, en]
-          example: "en"
-          description: "Cambiar idioma preferido del usuario"
+          example: 'en'
+          description: 'Cambiar idioma preferido del usuario'
 
     # --- Webhooks ---
     SupabaseWebhookPayload:
       type: object
-      description: "Payload enviado por Supabase cuando se crea un nuevo usuario"
+      description: 'Payload enviado por Supabase cuando se crea un nuevo usuario'
       required:
         - type
         - table
@@ -363,57 +433,57 @@ components:
         type:
           type: string
           enum: [INSERT, UPDATE, DELETE]
-          example: "INSERT"
-          description: "Tipo de evento de base de datos"
+          example: 'INSERT'
+          description: 'Tipo de evento de base de datos'
         table:
           type: string
-          example: "users"
-          description: "Nombre de la tabla afectada"
+          example: 'users'
+          description: 'Nombre de la tabla afectada'
         record:
           type: object
-          description: "Datos del usuario creado en Supabase Auth"
+          description: 'Datos del usuario creado en Supabase Auth'
           required:
             - id
             - email
           properties:
             id:
               $ref: '#/components/schemas/UUID'
-              description: "UUID del usuario en Supabase Auth (usarlo como PK en tabla local)"
+              description: 'UUID del usuario en Supabase Auth (usarlo como PK en tabla local)'
             email:
               type: string
               format: email
-              example: "user@example.com"
+              example: 'user@example.com'
             raw_user_meta_data:
               type: object
-              description: "Metadata adicional del perfil del usuario"
+              description: 'Metadata adicional del perfil del usuario'
               properties:
                 displayName:
                   type: string
-                  example: "John Doe"
+                  example: 'John Doe'
                   nullable: true
                 avatarUrl:
                   type: string
                   format: uri
-                  example: "https://example.com/avatar.jpg"
+                  example: 'https://example.com/avatar.jpg'
                   nullable: true
                 language:
                   type: string
                   enum: [es, en]
-                  example: "es"
-                  description: "Idioma detectado del dispositivo al momento del registro"
+                  example: 'es'
+                  description: 'Idioma detectado del dispositivo al momento del registro'
                   nullable: false
             created_at:
               type: string
               format: date-time
-              example: "2025-12-01T20:00:00Z"
+              example: '2025-12-01T20:00:00Z'
         schema:
           type: string
-          example: "auth"
+          example: 'auth'
           description: "Schema de la base de datos (siempre 'auth' para usuarios de Supabase)"
         old_record:
           type: object
           nullable: true
-          description: "Registro anterior (null para INSERT events)"
+          description: 'Registro anterior (null para INSERT events)'
 
     WebhookSuccessResponse:
       type: object
@@ -423,7 +493,7 @@ components:
           example: true
         message:
           type: string
-          example: "User created successfully"
+          example: 'User created successfully'
         userId:
           $ref: '#/components/schemas/UUID'
 
@@ -515,18 +585,25 @@ paths:
                     success: true
                     identified: true
                     artwork:
-                      id: "550e8400-e29b-41d4-a716-446655440000"
-                      title: "Las Meninas"
-                      artist: "Diego Velázquez"
-                      year: "1656"
-                      period: "Spanish Baroque"
-                      description: "One of the masterpieces of the Spanish Golden Age. It shows Infanta Margaret surrounded by her ladies-in-waiting (meninas) and other members of the court, including the painter himself. The complex composition with multiple viewpoints, the masterful use of light, and the mirror reflecting King Philip IV and Queen Mariana of Austria, challenge the perception of space and reality."
+                      id: '550e8400-e29b-41d4-a716-446655440000'
+                      title: 'Las Meninas'
+                      artist: 'Diego Velázquez'
+                      year: '1656'
+                      period: 'Spanish Baroque'
+                      description: 'One of the masterpieces of the Spanish Golden Age. It shows Infanta Margaret surrounded by her ladies-in-waiting (meninas) and other members of the court, including the painter himself. The complex composition with multiple viewpoints, the masterful use of light, and the mirror reflecting King Philip IV and Queen Mariana of Austria, challenge the perception of space and reality.'
                       confidence: 0.98
-                      tags: ["Spanish Baroque", "Court Portrait", "Oil on Canvas", "17th Century", "Prado Museum"]
-                      capturedImageUrl: "https://storage.artexplorer.com/captures/user123/abc123.jpg"
-                      identifiedAt: "2025-11-30T14:30:00Z"
+                      tags:
+                        [
+                          'Spanish Baroque',
+                          'Court Portrait',
+                          'Oil on Canvas',
+                          '17th Century',
+                          'Prado Museum',
+                        ]
+                      capturedImageUrl: 'https://storage.artexplorer.com/captures/user123/abc123.jpg'
+                      identifiedAt: '2025-11-30T14:30:00Z'
                     savedToCollection: true
-                    message: "Artwork successfully identified and saved to collection"
+                    message: 'Artwork successfully identified and saved to collection'
                 not_identified:
                   summary: Obra no pudo ser identificada
                   value:
@@ -534,7 +611,7 @@ paths:
                     identified: false
                     artwork: null
                     savedToCollection: false
-                    message: "Artwork could not be identified. Try with better lighting or a different angle."
+                    message: 'Artwork could not be identified. Try with better lighting or a different angle.'
         '400':
           description: Solicitud inválida - imagen corrupta, formato no soportado, etc.
           content:
@@ -546,13 +623,13 @@ paths:
                   summary: Formato de imagen no válido
                   value:
                     success: false
-                    error: "invalid_image_format"
-                    message: "The uploaded file must be a valid JPG, PNG, or HEIC image"
+                    error: 'invalid_image_format'
+                    message: 'The uploaded file must be a valid JPG, PNG, or HEIC image'
                 missing_image:
                   summary: Falta el campo image
                   value:
                     success: false
-                    error: "missing_required_field"
+                    error: 'missing_required_field'
                     message: "The 'image' field is required"
         '401':
           description: No autenticado - token JWT inválido o faltante
@@ -562,8 +639,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
                 success: false
-                error: "unauthorized"
-                message: "Valid authentication token required"
+                error: 'unauthorized'
+                message: 'Valid authentication token required'
         '413':
           description: Payload demasiado grande - imagen excede 10MB
           content:
@@ -572,8 +649,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
                 success: false
-                error: "payload_too_large"
-                message: "Image file size must not exceed 10MB"
+                error: 'payload_too_large'
+                message: 'Image file size must not exceed 10MB'
         '429':
           description: Demasiadas solicitudes - rate limit excedido
           content:
@@ -582,8 +659,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
                 success: false
-                error: "rate_limit_exceeded"
-                message: "Recognition limit reached. Upgrade to premium for unlimited scans."
+                error: 'rate_limit_exceeded'
+                message: 'Recognition limit reached. Upgrade to premium for unlimited scans.'
         '500':
           description: Error interno del servidor - fallo en procesamiento IA o base de datos
           content:
@@ -592,12 +669,13 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
                 success: false
-                error: "internal_server_error"
-                message: "An unexpected error occurred while processing the image. Please try again."
+                error: 'internal_server_error'
+                message: 'An unexpected error occurred while processing the image. Please try again.'
 
   # ----------------------------
   # EXPLORE SCREEN
   # ----------------------------
+
   /api/explore/locations/nearby:
     get:
       tags:
@@ -912,7 +990,7 @@ paths:
                   artworks:
                     type: array
                     items:
-                      # Nota: La respuesta de ejemplo muestra una versión simplificada, 
+                      # Nota: La respuesta de ejemplo muestra una versión simplificada,
                       # pero usaremos el esquema completo para consistencia o una versión parcial inline
                       type: object
                       properties:
@@ -988,9 +1066,9 @@ paths:
                     $ref: '#/components/schemas/CollectionStats'
 
   # ----------------------------
-  # USERS
+  # SYNC
   # ----------------------------
-  /api/users/me:
+  /api/sync/users/me:
     get:
       tags:
         - Users
@@ -1012,13 +1090,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/User'
               example:
-                id: "550e8400-e29b-41d4-a716-446655440000"
-                email: "user@example.com"
-                display_name: "John Doe"
-                avatar_url: "https://example.com/avatar.jpg"
-                preferred_language: "es"
+                id: '550e8400-e29b-41d4-a716-446655440000'
+                email: 'user@example.com'
+                display_name: 'John Doe'
+                avatar_url: 'https://example.com/avatar.jpg'
+                preferred_language: 'es'
                 is_premium: false
-                created_at: "2025-12-01T20:00:00Z"
+                created_at: '2025-12-01T20:00:00Z'
         '401':
           description: No autenticado
           content:
@@ -1027,8 +1105,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
                 success: false
-                error: "Unauthorized"
-                message: "No authentication token provided"
+                error: 'Unauthorized'
+                message: 'No authentication token provided'
 
     patch:
       tags:
@@ -1058,18 +1136,18 @@ paths:
               update_language:
                 summary: Cambiar idioma preferido
                 value:
-                  preferred_language: "en"
+                  preferred_language: 'en'
               update_profile:
                 summary: Actualizar nombre y avatar
                 value:
-                  display_name: "Jane Smith"
-                  avatar_url: "https://example.com/new-avatar.jpg"
+                  display_name: 'Jane Smith'
+                  avatar_url: 'https://example.com/new-avatar.jpg'
               update_all:
                 summary: Actualizar todos los campos
                 value:
-                  display_name: "Jane Smith"
-                  avatar_url: "https://example.com/new-avatar.jpg"
-                  preferred_language: "en"
+                  display_name: 'Jane Smith'
+                  avatar_url: 'https://example.com/new-avatar.jpg'
+                  preferred_language: 'en'
       responses:
         '200':
           description: Perfil actualizado exitosamente
@@ -1078,13 +1156,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/User'
               example:
-                id: "550e8400-e29b-41d4-a716-446655440000"
-                email: "user@example.com"
-                display_name: "Jane Smith"
-                avatar_url: "https://example.com/new-avatar.jpg"
-                preferred_language: "en"
+                id: '550e8400-e29b-41d4-a716-446655440000'
+                email: 'user@example.com'
+                display_name: 'Jane Smith'
+                avatar_url: 'https://example.com/new-avatar.jpg'
+                preferred_language: 'en'
                 is_premium: false
-                created_at: "2025-12-01T20:00:00Z"
+                created_at: '2025-12-01T20:00:00Z'
         '400':
           description: Datos inválidos
           content:
@@ -1093,7 +1171,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
                 success: false
-                error: "Validation Error"
+                error: 'Validation Error'
                 message: "preferred_language must be 'es' or 'en'"
         '401':
           description: No autenticado
@@ -1103,9 +1181,181 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
                 success: false
-                error: "Unauthorized"
-                message: "No authentication token provided"
+                error: 'Unauthorized'
+                message: 'No authentication token provided'
+  /api/sync/categories:
+    get:
+      tags:
+        - Explore
+      summary: Obtener todas las categorías con jerarquía y traducciones
+      description: |
+        Retorna el catálogo completo de categorías de arte con su estructura jerárquica.
 
+        **Estructura de jerarquía:**
+        - 3 categorías principales: Pintura, Escultura, Arquitectura y Monumentos
+        - 14 subcategorías (períodos artísticos): Antigüedad, Renacimiento, Barroco, etc.
+        - Cada subcategoría pertenece a las 3 categorías principales (42 relaciones totales)
+
+        **Uso en la app:**
+        - Sincronización inicial al instalar la app o login
+        - Actualización periódica en background sync
+        - Filtrado en pantalla Explore por categoría/subcategoría
+        - Navegación jerárquica: Category → Subcategory → Artworks
+
+        **Sync incremental:**
+        - Usar campo `updatedAt` para detectar cambios
+        - Cachear localmente en SQLite para acceso offline
+        - Las traducciones se sirven según el parámetro `language`
+      parameters:
+        - in: query
+          name: language
+          required: false
+          schema:
+            type: string
+            enum: [es, en]
+            default: 'es'
+          description: |
+            Código ISO 639-1 del idioma para las traducciones de nombres de categorías.
+            Si no existe traducción para el idioma solicitado, se devuelve español por defecto.
+      responses:
+        '200':
+          description: Lista completa de categorías con relaciones
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  categories:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CategoryWithRelations'
+                    description: 'Array con todas las categorías (principales y subcategorías)'
+                  updatedAt:
+                    type: string
+                    format: date-time
+                    description: 'Timestamp de la última actualización del catálogo (para sync incremental)'
+                    example: '2025-12-04T10:30:00Z'
+              examples:
+                complete_hierarchy:
+                  summary: Ejemplo completo con jerarquía de categorías
+                  value:
+                    categories:
+                      - id: 'pintura'
+                        name: 'Pintura'
+                        type: 'category'
+                        icon: '🎨'
+                        imageUrl: null
+                        sortOrder: 1
+                        parentIds: []
+                        childIds:
+                          - 'antiguedad-romana-griega'
+                          - 'arte-medieval-romanico'
+                          - 'arte-medieval-gotico'
+                          - 'renacimiento'
+                          - 'manierismo'
+                          - 'barroco'
+                          - 'rococo'
+                          - 'neoclasicismo'
+                          - 'romanticismo'
+                          - 'realismo'
+                          - 'impresionismo-postimpresionismo'
+                          - 'modernismo'
+                          - 'vanguardias'
+                          - 'arte-moderno-contemporaneo'
+                        updatedAt: '2025-12-04T10:00:00Z'
+                      - id: 'escultura'
+                        name: 'Escultura'
+                        type: 'category'
+                        icon: '🗿'
+                        imageUrl: null
+                        sortOrder: 2
+                        parentIds: []
+                        childIds:
+                          - 'antiguedad-romana-griega'
+                          - 'arte-medieval-romanico'
+                          - 'arte-medieval-gotico'
+                          - 'renacimiento'
+                          - 'manierismo'
+                          - 'barroco'
+                          - 'rococo'
+                          - 'neoclasicismo'
+                          - 'romanticismo'
+                          - 'realismo'
+                          - 'impresionismo-postimpresionismo'
+                          - 'modernismo'
+                          - 'vanguardias'
+                          - 'arte-moderno-contemporaneo'
+                        updatedAt: '2025-12-04T10:00:00Z'
+                      - id: 'arquitectura-monumentos'
+                        name: 'Arquitectura y Monumentos'
+                        type: 'category'
+                        icon: '🏛️'
+                        imageUrl: null
+                        sortOrder: 3
+                        parentIds: []
+                        childIds:
+                          - 'antiguedad-romana-griega'
+                          - 'arte-medieval-romanico'
+                          - 'arte-medieval-gotico'
+                          - 'renacimiento'
+                          - 'manierismo'
+                          - 'barroco'
+                          - 'rococo'
+                          - 'neoclasicismo'
+                          - 'romanticismo'
+                          - 'realismo'
+                          - 'impresionismo-postimpresionismo'
+                          - 'modernismo'
+                          - 'vanguardias'
+                          - 'arte-moderno-contemporaneo'
+                        updatedAt: '2025-12-04T10:00:00Z'
+                      - id: 'renacimiento'
+                        name: 'Renacimiento'
+                        type: 'subcategory'
+                        icon: '🎭'
+                        imageUrl: null
+                        sortOrder: 4
+                        parentIds:
+                          - 'pintura'
+                          - 'escultura'
+                          - 'arquitectura-monumentos'
+                        childIds: []
+                        updatedAt: '2025-12-04T10:00:00Z'
+                      - id: 'barroco'
+                        name: 'Barroco'
+                        type: 'subcategory'
+                        icon: '👑'
+                        imageUrl: null
+                        sortOrder: 6
+                        parentIds:
+                          - 'pintura'
+                          - 'escultura'
+                          - 'arquitectura-monumentos'
+                        childIds: []
+                        updatedAt: '2025-12-04T10:00:00Z'
+                      - id: 'impresionismo-postimpresionismo'
+                        name: 'Impresionismo y Post-Impresionismo'
+                        type: 'subcategory'
+                        icon: '🌈'
+                        imageUrl: null
+                        sortOrder: 11
+                        parentIds:
+                          - 'pintura'
+                          - 'escultura'
+                          - 'arquitectura-monumentos'
+                        childIds: []
+                        updatedAt: '2025-12-04T10:00:00Z'
+                    updatedAt: '2025-12-04T10:30:00Z'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: 'internal_server_error'
+                message: 'Failed to retrieve categories from database'
   # ----------------------------
   # WEBHOOKS
   # ----------------------------
@@ -1141,47 +1391,47 @@ paths:
               user_created:
                 summary: Usuario creado con metadata completa (email signup)
                 value:
-                  type: "INSERT"
-                  table: "users"
+                  type: 'INSERT'
+                  table: 'users'
                   record:
-                    id: "550e8400-e29b-41d4-a716-446655440000"
-                    email: "john.doe@example.com"
+                    id: '550e8400-e29b-41d4-a716-446655440000'
+                    email: 'john.doe@example.com'
                     raw_user_meta_data:
-                      displayName: "John Doe"
-                      avatarUrl: "https://example.com/avatar.jpg"
-                      language: "es"
-                    created_at: "2025-12-01T20:00:00Z"
-                  schema: "auth"
+                      displayName: 'John Doe'
+                      avatarUrl: 'https://example.com/avatar.jpg'
+                      language: 'es'
+                    created_at: '2025-12-01T20:00:00Z'
+                  schema: 'auth'
                   old_record: null
               user_created_anonymous:
                 summary: Usuario anónimo (free trial) creado desde dispositivo
                 value:
-                  type: "INSERT"
-                  table: "users"
+                  type: 'INSERT'
+                  table: 'users'
                   record:
-                    id: "650e8400-e29b-41d4-a716-446655440001"
-                    email: "device-abc123@freetrial.travelai.app"
+                    id: '650e8400-e29b-41d4-a716-446655440001'
+                    email: 'device-abc123@freetrial.travelai.app'
                     raw_user_meta_data:
-                      user_type: "free_trial"
-                      device_id: "abc123-device-uuid"
-                      platform: "ios"
+                      user_type: 'free_trial'
+                      device_id: 'abc123-device-uuid'
+                      platform: 'ios'
                       is_anonymous: true
-                      language: "en"
-                      created_at: "2025-12-03T10:00:00Z"
-                    created_at: "2025-12-03T10:00:00Z"
-                  schema: "auth"
+                      language: 'en'
+                      created_at: '2025-12-03T10:00:00Z'
+                    created_at: '2025-12-03T10:00:00Z'
+                  schema: 'auth'
                   old_record: null
               user_created_minimal:
                 summary: Usuario creado sin metadata opcional (OAuth fallback)
                 value:
-                  type: "INSERT"
-                  table: "users"
+                  type: 'INSERT'
+                  table: 'users'
                   record:
-                    id: "550e8400-e29b-41d4-a716-446655440000"
-                    email: "jane.doe@example.com"
+                    id: '550e8400-e29b-41d4-a716-446655440000'
+                    email: 'jane.doe@example.com'
                     raw_user_meta_data: null
-                    created_at: "2025-12-01T20:00:00Z"
-                  schema: "auth"
+                    created_at: '2025-12-01T20:00:00Z'
+                  schema: 'auth'
                   old_record: null
       responses:
         '200':
@@ -1192,8 +1442,8 @@ paths:
                 $ref: '#/components/schemas/WebhookSuccessResponse'
               example:
                 success: true
-                message: "User created successfully"
-                userId: "550e8400-e29b-41d4-a716-446655440000"
+                message: 'User created successfully'
+                userId: '550e8400-e29b-41d4-a716-446655440000'
         '400':
           description: Payload inválido o datos faltantes
           content:
@@ -1202,8 +1452,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
                 success: false
-                error: "invalid_payload"
-                message: "Missing required field: record.id"
+                error: 'invalid_payload'
+                message: 'Missing required field: record.id'
         '401':
           description: Webhook secret inválido o faltante
           content:
@@ -1212,8 +1462,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
                 success: false
-                error: "unauthorized"
-                message: "Invalid or missing webhook secret"
+                error: 'unauthorized'
+                message: 'Invalid or missing webhook secret'
         '500':
           description: Error interno al crear usuario en base de datos
           content:
@@ -1222,5 +1472,5 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
                 success: false
-                error: "internal_server_error"
-                message: "Failed to create user in database"
+                error: 'internal_server_error'
+                message: 'Failed to create user in database'

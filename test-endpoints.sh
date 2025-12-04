@@ -66,6 +66,8 @@ test_endpoint() {
         response=$(curl -s -w "\n%{http_code}" $additional_args "$API_BASE_URL$path")
     elif [ "$method" == "POST" ]; then
         response=$(curl -s -w "\n%{http_code}" -X POST $additional_args "$API_BASE_URL$path")
+    elif [ "$method" == "PATCH" ]; then
+        response=$(curl -s -w "\n%{http_code}" -X PATCH $additional_args "$API_BASE_URL$path")
     elif [ "$method" == "DELETE" ]; then
         response=$(curl -s -w "\n%{http_code}" -X DELETE $additional_args "$API_BASE_URL$path")
     fi
@@ -331,6 +333,45 @@ test_user_collection_endpoints() {
 }
 
 # ========================================
+# SYNC ENDPOINTS TESTS
+# ========================================
+test_sync_endpoints() {
+    print_test_header "Sync Endpoints"
+
+    # Test categories endpoint (public endpoint - no auth required)
+    test_endpoint "GET" "/api/sync/categories" \
+        "Get categories (default language: es)" "200"
+
+    test_endpoint "GET" "/api/sync/categories?language=es" \
+        "Get categories in Spanish" "200"
+
+    test_endpoint "GET" "/api/sync/categories?language=en" \
+        "Get categories in English" "200"
+
+    # Test with invalid language (should still work with validation or fallback)
+    test_endpoint "GET" "/api/sync/categories?language=invalid" \
+        "Get categories with invalid language" "400"
+
+    # Test users/me endpoints (require authentication - should return 401)
+    test_endpoint "GET" "/api/sync/users/me" \
+        "Get current user profile (no auth)" "401"
+
+    test_endpoint "PATCH" "/api/sync/users/me" \
+        "Update user profile (no auth)" "401" \
+        "-H 'Content-Type: application/json' -d '{\"languagePreference\":\"en\"}'"
+
+    # Note: To test with authentication, you would need to:
+    # 1. Get a valid JWT token from Supabase
+    # 2. Add it to the request like this:
+    # test_endpoint "GET" "/api/sync/users/me" \
+    #     "Get current user profile (with auth)" "200" \
+    #     "-H 'Authorization: Bearer YOUR_TOKEN_HERE'"
+    # test_endpoint "PATCH" "/api/sync/users/me" \
+    #     "Update user language preference (with auth)" "200" \
+    #     "-H 'Authorization: Bearer YOUR_TOKEN_HERE' -H 'Content-Type: application/json' -d '{\"languagePreference\":\"en\"}'"
+}
+
+# ========================================
 # WEBHOOK TESTS
 # ========================================
 test_webhook_endpoints() {
@@ -372,6 +413,7 @@ main() {
     test_artworks_endpoints
     test_payment_endpoints
     test_user_collection_endpoints
+    test_sync_endpoints
     test_webhook_endpoints
 
     # Print summary

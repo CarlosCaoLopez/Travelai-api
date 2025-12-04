@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../database/prisma.service';
+import { PrismaService } from '../../database/prisma.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 
@@ -27,7 +27,9 @@ export class UsersService {
       const updatedUser = await this.prisma.user.update({
         where: { id: userId },
         data: {
-          ...(dto.displayName !== undefined && { displayName: dto.displayName }),
+          ...(dto.displayName !== undefined && {
+            displayName: dto.displayName,
+          }),
           ...(dto.avatarUrl !== undefined && { avatarUrl: dto.avatarUrl }),
           ...(dto.preferredLanguage !== undefined && {
             preferredLanguage: dto.preferredLanguage,
