@@ -206,8 +206,6 @@ components:
           type: string
         year:
           type: string
-        period:
-          type: string
         dimensions:
           type: string
         technique:
@@ -265,22 +263,16 @@ components:
       type: object
       required:
         - image
+        - localUri
       properties:
         image:
           type: string
           format: binary
           description: 'Imagen capturada del monumento u obra de arte (JPG, PNG, HEIC - máximo 10MB)'
-        device_metadata:
-          type: object
-          description: 'Metadata opcional del dispositivo para analytics'
-          properties:
-            platform:
-              type: string
-              enum: [ios, android]
-              example: 'ios'
-            app_version:
-              type: string
-              example: '1.0.0'
+        localUri:
+          type: string
+          description: 'URI local del dispositivo donde se guardó la imagen (file:// o content://)'
+          example: 'file:///storage/emulated/0/DCIM/Camera/IMG_20241209_153045.jpg'
 
     RecognizedArtworkData:
       type: object
@@ -327,9 +319,8 @@ components:
           description: 'Categorías, estilos y metadata adicional'
         capturedImageUrl:
           type: string
-          format: uri
-          example: 'https://storage.artexplorer.com/captures/user123/abc123.jpg'
-          description: 'URL de la imagen capturada almacenada en el servidor'
+          example: 'file:///storage/emulated/0/DCIM/Camera/IMG_20241209_153045.jpg'
+          description: 'URI local del dispositivo donde se encuentra la imagen capturada'
         identifiedAt:
           type: string
           format: date-time
@@ -540,10 +531,10 @@ paths:
         si es reconocida exitosamente.
 
         **Flujo:**
-        1. Usuario captura foto desde la cámara
-        2. Frontend envía imagen como multipart/form-data
-        3. Backend procesa con IA y busca coincidencias
-        4. Si identifica: guarda en colección y retorna datos completos
+        1. Usuario captura foto desde la cámara y la guarda localmente en el dispositivo
+        2. Frontend envía imagen (para análisis) y localUri (para almacenamiento) como multipart/form-data
+        3. Backend procesa imagen con IA y busca coincidencias
+        4. Si identifica: guarda localUri en colección y retorna datos completos
         5. Si no identifica: retorna identified=false con mensaje descriptivo
 
         **Limitaciones:**

@@ -5,6 +5,7 @@ import {
   UseInterceptors,
   UseGuards,
   Query,
+  Body,
   BadRequestException,
   InternalServerErrorException,
   PayloadTooLargeException,
@@ -17,11 +18,9 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/supabase-jwt.strategy';
 import { CameraService } from './camera.service';
 import { RecognitionQueryDto } from './dto/recognition-query.dto';
-import { DeviceMetadataDto } from './dto/device-metadata.dto';
 import { RecognitionResponseDto } from './dto/recognition-response.dto';
 import { imageFileFilter } from './utils/file-validation';
 import { getMessage } from './constants/messages';
-import { DeviceMetadata } from './decorators/device-metadata.decorator';
 
 @Controller('api/camera')
 @UseGuards(SupabaseAuthGuard)
@@ -44,8 +43,8 @@ export class CameraController {
   async recognizeArtwork(
     @CurrentUser() user: AuthenticatedUser,
     @UploadedFile() file: Express.Multer.File,
+    @Body('localUri') localUri: string,
     @Query() query: RecognitionQueryDto,
-    @DeviceMetadata() deviceMetadata?: DeviceMetadataDto,
   ): Promise<RecognitionResponseDto> {
     const language = query.language || 'es';
 
@@ -54,19 +53,24 @@ export class CameraController {
       throw new BadRequestException(getMessage(language, 'MISSING_IMAGE'));
     }
 
+    // Validate localUri exists
+    if (!localUri || localUri.trim() === '') {
+      throw new BadRequestException(getMessage(language, 'MISSING_LOCAL_URI'));
+    }
+
     this.logger.log(
-      `Recognition request from user ${user.userId}, file: ${file.originalname}, language: ${language}`,
+      `Recognition request from user ${user.userId}, file: ${file.originalname}, language: ${language}, localUri: ${localUri}`,
     );
 
     try {
-      // Call service with buffer (image in memory)
+      // Call service with buffer (image in memory) and localUri
       const result = await this.cameraService.recognizeArtwork(
         file.buffer,
         file.originalname,
         file.mimetype,
         user.userId,
+        localUri,
         language,
-        deviceMetadata,
       );
 
       return result;

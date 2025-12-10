@@ -7,7 +7,6 @@ import { CameraService } from './camera.service';
 import { QwenVisionService } from './services/qwen-vision.service';
 import { GoogleVisionService } from './services/google-vision.service';
 import { WebScraperService } from './services/web-scraper.service';
-import { SupabaseStorageService } from './services/supabase-storage.service';
 import { ArtworkMatchingService } from './services/artwork-matching.service';
 import { ImageProcessingService } from './services/image-processing.service';
 
@@ -26,7 +25,6 @@ import { ImageProcessingService } from './services/image-processing.service';
     QwenVisionService,
     GoogleVisionService,
     WebScraperService,
-    SupabaseStorageService,
     ArtworkMatchingService,
     ImageProcessingService,
   ],

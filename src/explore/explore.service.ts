@@ -21,7 +21,6 @@ import type {
 
 interface GetArtworksParams {
   categoryId?: string;
-  subcategoryId?: string;
   country?: string;
   language?: string;
   limit?: number;
@@ -43,7 +42,6 @@ export class ExploreService {
   ): Promise<ArtworksListResponseDto> {
     const {
       categoryId,
-      subcategoryId,
       country,
       language = 'es',
       limit = 20,
@@ -60,10 +58,6 @@ export class ExploreService {
 
       if (categoryId) {
         where.categoryId = categoryId;
-      }
-
-      if (subcategoryId) {
-        where.subcategoryId = subcategoryId;
       }
 
       if (country) {
@@ -100,15 +94,6 @@ export class ExploreService {
               },
             },
           },
-          subcategory: {
-            include: {
-              translations: {
-                where: {
-                  language,
-                },
-              },
-            },
-          },
           translations: {
             where: {
               language,
@@ -127,7 +112,6 @@ export class ExploreService {
         const translation = artwork.translations[0];
         const countryTranslation = artwork.country.translations[0];
         const categoryTranslation = artwork.category.translations[0];
-        const subcategoryTranslation = artwork.subcategory?.translations[0];
 
         const category: CategoryObjectDto = {
           id: artwork.category.id,
@@ -135,27 +119,18 @@ export class ExploreService {
           icon: artwork.category.icon,
         };
 
-        const subcategory: CategoryObjectDto | null = artwork.subcategory
-          ? {
-              id: artwork.subcategory.id,
-              name: subcategoryTranslation?.name || artwork.subcategory.id,
-              icon: artwork.subcategory.icon,
-            }
-          : null;
-
         return {
           id: artwork.id,
           title: translation?.title || 'Untitled',
           author: artwork.author.name,
           year: artwork.year,
           country: countryTranslation?.name || artwork.country.defaultName,
-          period: translation?.period || null,
+          period: categoryTranslation?.name || null,
           technique: translation?.technique || null,
           dimensions: artwork.dimensions,
           imageUrl: artwork.imageUrl,
           description: translation?.description || '',
           category,
-          subcategory,
           createdAt: artwork.createdAt.toISOString(),
           updatedAt: artwork.updatedAt.toISOString(),
         };
@@ -177,7 +152,6 @@ export class ExploreService {
         },
         filters: {
           category_id: categoryId,
-          subcategory_id: subcategoryId,
           country,
           language,
         },

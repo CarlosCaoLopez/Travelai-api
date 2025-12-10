@@ -16,7 +16,6 @@ export interface ArtworkResponseDto {
   imageUrl: string;
   description: string;
   category: CategoryObjectDto;
-  subcategory: CategoryObjectDto | null;
   createdAt: string;
   updatedAt: string;
 }

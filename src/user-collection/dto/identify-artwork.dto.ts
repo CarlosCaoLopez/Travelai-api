@@ -2,7 +2,7 @@ import { IsNotEmpty, IsOptional, IsString, IsUrl } from 'class-validator';
 
 export class IdentifyArtworkDto {
   @IsNotEmpty()
-  @IsUrl()
+  @IsString()
   capturedImageUrl: string;
 
   @IsNotEmpty()
@@ -32,10 +32,6 @@ export class IdentifyArtworkDto {
   @IsOptional()
   @IsString()
   year?: string;
-
-  @IsOptional()
-  @IsString()
-  period?: string;
 
   @IsOptional()
   @IsString()

@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  InternalServerErrorException,
-} from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
 import { PrismaService } from '../database/prisma.service';
@@ -12,11 +8,9 @@ import {
   WebDetection,
 } from './services/google-vision.service';
 import { WebScraperService } from './services/web-scraper.service';
-import { SupabaseStorageService } from './services/supabase-storage.service';
 import { ArtworkMatchingService } from './services/artwork-matching.service';
 import { ImageProcessingService } from './services/image-processing.service';
 import { RecognitionResponseDto } from './dto/recognition-response.dto';
-import { DeviceMetadataDto } from './dto/device-metadata.dto';
 import { getMessage } from './constants/messages';
 
 interface ArtworkData {
@@ -45,7 +39,6 @@ export class CameraService {
     private readonly qwenVisionService: QwenVisionService,
     private readonly googleVisionService: GoogleVisionService,
     private readonly webScraperService: WebScraperService,
-    private readonly storageService: SupabaseStorageService,
     private readonly matchingService: ArtworkMatchingService,
     private readonly imageProcessingService: ImageProcessingService,
     private readonly prisma: PrismaService,
@@ -73,19 +66,18 @@ export class CameraService {
 
   async recognizeArtwork(
     imageBuffer: Buffer,
-    originalFilename: string,
-    mimeType: string,
+    _originalFilename: string,
+    _mimeType: string,
     userId: string,
+    localUri: string,
     language: string = 'es',
-    deviceMetadata?: DeviceMetadataDto,
   ): Promise<RecognitionResponseDto> {
     this.logger.log(
       `Recognition request from user ${userId}, language: ${language}`,
     );
 
-    // 1. Convert image to base64 (original, unprocessed)
+    // 1. Convert image to base64 for AI analysis
     const base64Image = this.imageProcessingService.bufferToBase64(imageBuffer);
-    const processedImageBuffer = imageBuffer;
 
     // 2. NEW FLOW: Parallel calls to Qwen VL and Google Vision
     this.logger.log(
@@ -184,49 +176,21 @@ export class CameraService {
       language,
     );
 
-    // 6. NOW upload image to storage (only if identified)
-    // Determine context: use artist name, or country if it's a monument/architecture
-    const contextName = this.determineContextName(artworkData, matchedArtwork);
-
-    const filename = this.imageProcessingService.generateFilename(
+    // 6. Save to user collection with localUri (no upload to storage)
+    const collectionItem = await this.saveToCollection(
       userId,
-      originalFilename,
+      localUri,
+      matchedArtwork,
+      artworkData,
     );
 
-    // Upload with organized folder structure: artworks/{userId}/{artistOrCountry}/{filename}
-    // Use processedImageBuffer (cropped if object was detected, original otherwise)
-    const storagePath = await this.storageService.uploadRecognizedArtwork(
-      processedImageBuffer,
-      filename,
-      mimeType,
-      userId,
-      contextName,
+    // 7. Build success response
+    return this.buildSuccessResponse(
+      collectionItem,
+      artworkData,
+      matchedArtwork,
+      language,
     );
-
-    // 7. Save to user collection
-    try {
-      const collectionItem = await this.saveToCollection(
-        userId,
-        storagePath,
-        matchedArtwork,
-        artworkData,
-      );
-
-      // 8. Build success response
-      return this.buildSuccessResponse(
-        collectionItem,
-        artworkData,
-        matchedArtwork,
-        language,
-      );
-    } catch (error) {
-      // Rollback: delete uploaded image if DB save fails
-      this.logger.error(`Database save failed, rolling back: ${error.message}`);
-      await this.storageService.deleteImage(storagePath);
-      throw new InternalServerErrorException(
-        getMessage(language, 'PROCESSING_ERROR'),
-      );
-    }
   }
 
   /**
@@ -554,34 +518,6 @@ IMPORTANT :
     }
   }
 
-  /**
-   * Determine context name for folder organization
-   * Returns country name for monuments or artist name for artworks
-   */
-  private determineContextName(
-    artworkData: ArtworkData,
-    matchedArtwork: any,
-  ): string {
-    // Check if it's a monument from AI data OR database match
-    const isMonumentFromAI = artworkData.isMonument ?? false;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    const isMonumentFromDB = Boolean(matchedArtwork?.isMonument);
-    const isMonument = isMonumentFromAI || isMonumentFromDB;
-
-    if (isMonument) {
-      // Use consistent "monuments" folder for all monuments
-      return 'monuments';
-    }
-
-    // For artworks, use artist name
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const artistName: string =
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      matchedArtwork?.author?.name || artworkData.artist || 'unknown_artist';
-
-    return artistName;
-  }
-
   private async saveToCollection(
     userId: string,
     capturedImageUrl: string,
@@ -599,7 +535,6 @@ IMPORTANT :
         customTitle: matchedArtwork ? null : artworkData.title,
         customAuthor: matchedArtwork ? null : artworkData.artist,
         customYear: matchedArtwork ? null : artworkData.year,
-        customPeriod: matchedArtwork ? null : artworkData.period,
         customTechnique: matchedArtwork ? null : artworkData.technique,
         customDimensions: matchedArtwork ? null : artworkData.dimensions,
         customDescription: matchedArtwork ? null : artworkData.description,
@@ -615,6 +550,7 @@ IMPORTANT :
     language: string,
   ): RecognitionResponseDto {
     const translation = matchedArtwork?.translations?.[0];
+    const categoryTranslation = matchedArtwork?.category?.translations?.[0];
 
     return {
       success: true,
@@ -624,7 +560,7 @@ IMPORTANT :
         title: translation?.title || artworkData.title || 'Unknown',
         artist: matchedArtwork?.author?.name || artworkData.artist || 'Unknown',
         year: matchedArtwork?.year || artworkData.year || 'Unknown',
-        period: translation?.period || artworkData.period || 'Unknown',
+        period: categoryTranslation?.name || artworkData.period || 'Unknown',
         description: translation?.description || artworkData.description || '',
         confidence: artworkData.confidence,
         tags: artworkData.tags || [],

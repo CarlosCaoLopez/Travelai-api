@@ -15,7 +15,7 @@ export class CategoriesService {
     try {
       this.logger.log(`Fetching categories for language: ${language}`);
 
-      // Fetch all categories with translations and relations
+      // Fetch all categories with translations
       const categories = await this.prisma.category.findMany({
         include: {
           translations: {
@@ -23,16 +23,6 @@ export class CategoriesService {
               language: {
                 in: [language, 'es'], // Always fetch requested language + Spanish fallback
               },
-            },
-          },
-          parentRelations: {
-            select: {
-              parentId: true,
-            },
-          },
-          childRelations: {
-            select: {
-              childId: true,
             },
           },
         },
@@ -58,12 +48,10 @@ export class CategoriesService {
           return {
             id: category.id,
             name: translation?.name || 'Unknown',
-            type: category.type as 'category' | 'subcategory',
+            type: 'category',
             icon: category.icon,
             imageUrl: category.imageUrl,
             sortOrder: category.sortOrder,
-            parentIds: category.parentRelations.map((r) => r.parentId),
-            childIds: category.childRelations.map((r) => r.childId),
             createdAt: category.createdAt.toISOString(),
             updatedAt: category.updatedAt.toISOString(),
           };

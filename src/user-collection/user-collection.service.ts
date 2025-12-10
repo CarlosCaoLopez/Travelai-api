@@ -140,13 +140,13 @@ export class UserCollectionService {
                 },
               },
             },
-            subcategory: {
-              include: {
-                translations: {
-                  where: { language },
-                },
-              },
+            translations: {
+              where: { language },
             },
+          },
+        },
+        customCategory: {
+          include: {
             translations: {
               where: { language },
             },
@@ -164,8 +164,6 @@ export class UserCollectionService {
         // Linked artwork
         const translation = item.artwork.translations[0];
         const categoryTranslation = item.artwork.category.translations[0];
-        const subcategoryTranslation =
-          item.artwork.subcategory?.translations[0];
         const countryTranslation = item.artwork.country.translations[0];
 
         return {
@@ -174,7 +172,7 @@ export class UserCollectionService {
           author: item.artwork.author.name,
           year: item.artwork.year,
           country: countryTranslation?.name || item.artwork.country.defaultName,
-          period: translation?.period,
+          period: categoryTranslation?.name || null,
           technique: translation?.technique,
           dimensions: item.artwork.dimensions,
           imageUrl: item.artwork.imageUrl,
@@ -184,13 +182,6 @@ export class UserCollectionService {
             name: categoryTranslation?.name || '',
             icon: item.artwork.category.icon,
           },
-          subcategory: item.artwork.subcategory
-            ? {
-                id: item.artwork.subcategory.id,
-                name: subcategoryTranslation?.name || '',
-                icon: item.artwork.subcategory.icon,
-              }
-            : null,
           createdAt: item.artwork.createdAt.toISOString(),
           updatedAt: item.artwork.updatedAt.toISOString(),
           capturedImageUrl: item.capturedImageUrl,
@@ -198,19 +189,20 @@ export class UserCollectionService {
         };
       } else {
         // Custom/snapshot artwork
+        const customCategoryTranslation = item.customCategory?.translations[0];
+
         return {
           id: item.id,
           title: item.customTitle || '',
           author: item.customAuthor || '',
           year: item.customYear,
           country: item.customCountry,
-          period: item.customPeriod,
+          period: customCategoryTranslation?.name || null,
           technique: item.customTechnique,
           dimensions: item.customDimensions,
           imageUrl: item.capturedImageUrl,
           description: item.customDescription || '',
           category: null,
-          subcategory: null,
           createdAt: item.createdAt.toISOString(),
           updatedAt: item.updatedAt.toISOString(),
           capturedImageUrl: item.capturedImageUrl,
@@ -277,13 +269,13 @@ export class UserCollectionService {
                 },
               },
             },
-            subcategory: {
-              include: {
-                translations: {
-                  where: { language },
-                },
-              },
+            translations: {
+              where: { language },
             },
+          },
+        },
+        customCategory: {
+          include: {
             translations: {
               where: { language },
             },
@@ -301,8 +293,6 @@ export class UserCollectionService {
         // Linked artwork
         const translation = item.artwork.translations[0];
         const categoryTranslation = item.artwork.category.translations[0];
-        const subcategoryTranslation =
-          item.artwork.subcategory?.translations[0];
         const countryTranslation = item.artwork.country.translations[0];
 
         return {
@@ -311,7 +301,7 @@ export class UserCollectionService {
           author: item.artwork.author.name,
           year: item.artwork.year,
           country: countryTranslation?.name || item.artwork.country.defaultName,
-          period: translation?.period,
+          period: categoryTranslation?.name || null,
           technique: translation?.technique,
           dimensions: item.artwork.dimensions,
           imageUrl: item.artwork.imageUrl,
@@ -321,13 +311,6 @@ export class UserCollectionService {
             name: categoryTranslation?.name || '',
             icon: item.artwork.category.icon,
           },
-          subcategory: item.artwork.subcategory
-            ? {
-                id: item.artwork.subcategory.id,
-                name: subcategoryTranslation?.name || '',
-                icon: item.artwork.subcategory.icon,
-              }
-            : null,
           createdAt: item.artwork.createdAt.toISOString(),
           updatedAt: item.artwork.updatedAt.toISOString(),
           capturedImageUrl: item.capturedImageUrl,
@@ -335,19 +318,20 @@ export class UserCollectionService {
         };
       } else {
         // Custom/snapshot artwork
+        const customCategoryTranslation = item.customCategory?.translations[0];
+
         return {
           id: item.id,
           title: item.customTitle || '',
           author: item.customAuthor || '',
           year: item.customYear,
           country: item.customCountry,
-          period: item.customPeriod,
+          period: customCategoryTranslation?.name || null,
           technique: item.customTechnique,
           dimensions: item.customDimensions,
           imageUrl: item.capturedImageUrl,
           description: item.customDescription || '',
           category: null,
-          subcategory: null,
           createdAt: item.createdAt.toISOString(),
           updatedAt: item.updatedAt.toISOString(),
           capturedImageUrl: item.capturedImageUrl,
@@ -389,13 +373,13 @@ export class UserCollectionService {
                 },
               },
             },
-            subcategory: {
-              include: {
-                translations: {
-                  where: { language },
-                },
-              },
+            translations: {
+              where: { language },
             },
+          },
+        },
+        customCategory: {
+          include: {
             translations: {
               where: { language },
             },
@@ -461,11 +445,6 @@ export class UserCollectionService {
             translations: true,
           },
         },
-        subcategory: {
-          include: {
-            translations: true,
-          },
-        },
         translations: true,
       },
     });
@@ -480,7 +459,7 @@ export class UserCollectionService {
         customTitle: existingArtwork ? null : dto.title,
         customAuthor: existingArtwork ? null : dto.author,
         customYear: existingArtwork ? null : dto.year,
-        customPeriod: existingArtwork ? null : dto.period,
+        customCategoryId: existingArtwork ? null : dto.category_id,
         customTechnique: existingArtwork ? null : dto.technique,
         customDimensions: existingArtwork ? null : dto.dimensions,
         customCountry: existingArtwork ? null : dto.country,
@@ -495,11 +474,6 @@ export class UserCollectionService {
               },
             },
             category: {
-              include: {
-                translations: true,
-              },
-            },
-            subcategory: {
               include: {
                 translations: true,
               },
@@ -520,8 +494,6 @@ export class UserCollectionService {
       const translation = collectionItem.artwork.translations[0];
       const categoryTranslation =
         collectionItem.artwork.category.translations[0];
-      const subcategoryTranslation =
-        collectionItem.artwork.subcategory?.translations[0];
       const countryTranslation = collectionItem.artwork.country.translations[0];
 
       artworkResponse = {
@@ -532,7 +504,7 @@ export class UserCollectionService {
         country:
           countryTranslation?.name ||
           collectionItem.artwork.country.defaultName,
-        period: translation?.period,
+        period: categoryTranslation?.name || null,
         technique: translation?.technique,
         dimensions: collectionItem.artwork.dimensions,
         imageUrl: collectionItem.artwork.imageUrl,
@@ -542,13 +514,6 @@ export class UserCollectionService {
           name: categoryTranslation?.name || '',
           icon: collectionItem.artwork.category.icon,
         },
-        subcategory: collectionItem.artwork.subcategory
-          ? {
-              id: collectionItem.artwork.subcategory.id,
-              name: subcategoryTranslation?.name || '',
-              icon: collectionItem.artwork.subcategory.icon,
-            }
-          : null,
         createdAt: collectionItem.artwork.createdAt.toISOString(),
         updatedAt: collectionItem.artwork.updatedAt.toISOString(),
         capturedImageUrl: collectionItem.capturedImageUrl,
@@ -562,13 +527,12 @@ export class UserCollectionService {
         author: collectionItem.customAuthor || '',
         year: collectionItem.customYear,
         country: collectionItem.customCountry,
-        period: collectionItem.customPeriod,
+        period: null, // TODO: Will be derived from customCategory.translations.name
         technique: collectionItem.customTechnique,
         dimensions: collectionItem.customDimensions,
         imageUrl: collectionItem.capturedImageUrl,
         description: collectionItem.customDescription || '',
         category: null,
-        subcategory: null,
         createdAt: collectionItem.createdAt.toISOString(),
         updatedAt: collectionItem.updatedAt.toISOString(),
         capturedImageUrl: collectionItem.capturedImageUrl,

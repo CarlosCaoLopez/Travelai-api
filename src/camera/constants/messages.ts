@@ -10,6 +10,8 @@ export const RECOGNITION_MESSAGES = {
       'Formato de imagen inválido. Solo se aceptan JPG, PNG y HEIC.',
     FILE_TOO_LARGE: 'La imagen es demasiado grande. El tamaño máximo es 10MB.',
     MISSING_IMAGE: 'Debes proporcionar una imagen.',
+    MISSING_LOCAL_URI:
+      'Debes proporcionar el URI local de la imagen capturada.',
     PROCESSING_ERROR:
       'Error al procesar la imagen. Por favor, intenta de nuevo.',
     RATE_LIMIT:
@@ -27,6 +29,7 @@ export const RECOGNITION_MESSAGES = {
       'Invalid image format. Only JPG, PNG and HEIC are accepted.',
     FILE_TOO_LARGE: 'The image is too large. Maximum size is 10MB.',
     MISSING_IMAGE: 'You must provide an image.',
+    MISSING_LOCAL_URI: 'You must provide the local URI of the captured image.',
     PROCESSING_ERROR: 'Error processing the image. Please try again.',
     RATE_LIMIT: 'You have reached the recognition limit. Try again later.',
   },
@@ -43,6 +46,7 @@ export const RECOGNITION_MESSAGES = {
     FILE_TOO_LARGE:
       "L'image est trop volumineuse. La taille maximale est de 10 Mo.",
     MISSING_IMAGE: 'Vous devez fournir une image.',
+    MISSING_LOCAL_URI: "Vous devez fournir l'URI local de l'image capturée.",
     PROCESSING_ERROR:
       "Erreur lors du traitement de l'image. Veuillez réessayer.",
     RATE_LIMIT:

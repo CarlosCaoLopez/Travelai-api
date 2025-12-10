@@ -62,18 +62,16 @@ model ArtistQuoteTranslation {
 }
 
 model Category {
-  id               String                @id
-  type             String                @db.VarChar(20)
-  icon             String
-  imageUrl         String?               @map("image_url")
-  sortOrder        Int                   @default(0) @map("sort_order")
-  createdAt        DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
-  artworks         Artwork[]             @relation("CategoryArtwork")
-  subcategoryWorks Artwork[]             @relation("SubcategoryArtwork")
-  childRelations   CategoryRelation[]    @relation("ChildCategory")
-  parentRelations  CategoryRelation[]    @relation("ParentCategory")
-  translations     CategoryTranslation[]
+  id                      String                @id
+  type                    String                @db.VarChar(20)
+  icon                    String
+  imageUrl                String?               @map("image_url")
+  sortOrder               Int                   @default(0) @map("sort_order")
+  createdAt               DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  artworks                Artwork[]             @relation("CategoryArtwork")
+  translations            CategoryTranslation[]
+  customCollectionItems   UserCollectionItem[]  @relation("CustomCategoryCollectionItems")
 
   @@map("categories")
 }
@@ -89,23 +87,11 @@ model CategoryTranslation {
   @@map("category_translations")
 }
 
-model CategoryRelation {
-  parentId  String   @map("parent_id")
-  childId   String   @map("child_id")
-  sortOrder Int      @default(0) @map("sort_order")
-  child     Category @relation("ChildCategory", fields: [childId], references: [id], onDelete: Cascade)
-  parent    Category @relation("ParentCategory", fields: [parentId], references: [id], onDelete: Cascade)
-
-  @@id([parentId, childId])
-  @@map("category_relations")
-}
-
 model Artwork {
   id                  String               @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   authorId            String               @map("author_id") @db.Uuid
   countryCode         String               @map("country_code") @db.Char(2)
   categoryId          String               @map("category_id")
-  subcategoryId       String?              @map("subcategory_id")
   year                String?              @db.VarChar(50)
   dimensions          String?              @db.VarChar(100)
   imageUrl            String               @map("image_url")
@@ -115,11 +101,10 @@ model Artwork {
   author              Author               @relation(fields: [authorId], references: [id])
   category            Category             @relation("CategoryArtwork", fields: [categoryId], references: [id])
   country             Country              @relation(fields: [countryCode], references: [isoCode])
-  subcategory         Category?            @relation("SubcategoryArtwork", fields: [subcategoryId], references: [id])
   userCollectionItems UserCollectionItem[]
 
   @@index([authorId])
-  @@index([categoryId, subcategoryId])
+  @@index([categoryId])
   @@map("artworks")
 }
 
@@ -129,7 +114,6 @@ model ArtworkTranslation {
   language    String  @db.VarChar(2)
   title       String
   description String
-  period      String?
   technique   String?
   artwork     Artwork @relation(fields: [artworkId], references: [id], onDelete: Cascade)
 
@@ -189,23 +173,24 @@ model Subscription {
 }
 
 model UserCollectionItem {
-  id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  userId            String   @map("user_id") @db.Uuid
-  artworkId         String?  @map("artwork_id") @db.Uuid
-  capturedImageUrl  String   @map("captured_image_url")
-  identifiedAt      DateTime @default(now()) @map("identified_at") @db.Timestamptz(6)
-  customTitle       String?  @map("custom_title")
-  customAuthor      String?  @map("custom_author")
-  customYear        String?  @map("custom_year")
-  customPeriod      String?  @map("custom_period")
-  customTechnique   String?  @map("custom_technique")
-  customDimensions  String?  @map("custom_dimensions")
-  customCountry     String?  @map("custom_country")
-  customDescription String?  @map("custom_description")
-  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-  artwork           Artwork? @relation(fields: [artworkId], references: [id])
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  artworkId         String?   @map("artwork_id") @db.Uuid
+  capturedImageUrl  String    @map("captured_image_url")
+  identifiedAt      DateTime  @default(now()) @map("identified_at") @db.Timestamptz(6)
+  customTitle       String?   @map("custom_title")
+  customAuthor      String?   @map("custom_author")
+  customYear        String?   @map("custom_year")
+  customCategoryId  String?   @map("custom_category_id")
+  customTechnique   String?   @map("custom_technique")
+  customDimensions  String?   @map("custom_dimensions")
+  customCountry     String?   @map("custom_country")
+  customDescription String?   @map("custom_description")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  artwork           Artwork?  @relation(fields: [artworkId], references: [id])
+  customCategory    Category? @relation("CustomCategoryCollectionItems", fields: [customCategoryId], references: [id])
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([identifiedAt(sort: Desc)], map: "idx_user_collection_date")
   @@index([userId], map: "idx_user_collection_user")

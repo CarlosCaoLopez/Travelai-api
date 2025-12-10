@@ -15,19 +15,17 @@ export class ExploreController {
   @Get('artworks')
   async getArtworks(
     @Query('category_id') categoryId?: string,
-    @Query('subcategory_id') subcategoryId?: string,
     @Query('country') country?: string,
     @Query('language') language: string = 'es',
     @Query('limit') limit: string = '20',
     @Query('offset') offset: string = '0',
   ): Promise<ArtworksListResponseDto> {
     this.logger.log(
-      `GET /api/explore/artworks - category_id: ${categoryId}, subcategory_id: ${subcategoryId}, country: ${country}, language: ${language}, limit: ${limit}, offset: ${offset}`,
+      `GET /api/explore/artworks - category_id: ${categoryId}, country: ${country}, language: ${language}, limit: ${limit}, offset: ${offset}`,
     );
 
     return this.exploreService.getArtworks({
       categoryId,
-      subcategoryId,
       country,
       language,
       limit: parseInt(limit, 10),
