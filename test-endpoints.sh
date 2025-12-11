@@ -360,6 +360,26 @@ test_sync_endpoints() {
         "Update user profile (no auth)" "401" \
         "-H 'Content-Type: application/json' -d '{\"languagePreference\":\"en\"}'"
 
+    # Test user/artworks endpoint (require authentication - should return 401)
+    test_endpoint "GET" "/api/sync/user/artworks" \
+        "Get user artworks (no auth)" "401"
+
+    test_endpoint "GET" "/api/sync/user/artworks?language=es" \
+        "Get user artworks in Spanish (no auth)" "401"
+
+    test_endpoint "GET" "/api/sync/user/artworks?language=en" \
+        "Get user artworks in English (no auth)" "401"
+
+    test_endpoint "GET" "/api/sync/user/artworks?updatedAfter=2025-12-10T10:00:00Z" \
+        "Get user artworks with updatedAfter filter (no auth)" "401"
+
+    test_endpoint "GET" "/api/sync/user/artworks?language=es&updatedAfter=2025-12-10T10:00:00Z" \
+        "Get user artworks with language and updatedAfter (no auth)" "401"
+
+    # Test with invalid language (should return 400 even without auth due to validation)
+    test_endpoint "GET" "/api/sync/user/artworks?language=invalid" \
+        "Get user artworks with invalid language (no auth)" "400"
+
     # Note: To test with authentication, you would need to:
     # 1. Get a valid JWT token from Supabase
     # 2. Add it to the request like this:
@@ -369,6 +389,12 @@ test_sync_endpoints() {
     # test_endpoint "PATCH" "/api/sync/users/me" \
     #     "Update user language preference (with auth)" "200" \
     #     "-H 'Authorization: Bearer YOUR_TOKEN_HERE' -H 'Content-Type: application/json' -d '{\"languagePreference\":\"en\"}'"
+    # test_endpoint "GET" "/api/sync/user/artworks" \
+    #     "Get user artworks (with auth)" "200" \
+    #     "-H 'Authorization: Bearer YOUR_TOKEN_HERE'"
+    # test_endpoint "GET" "/api/sync/user/artworks?language=en&updatedAfter=2025-12-10T10:00:00Z" \
+    #     "Get user artworks with full sync params (with auth)" "200" \
+    #     "-H 'Authorization: Bearer YOUR_TOKEN_HERE'"
 }
 
 # ========================================

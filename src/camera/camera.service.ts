@@ -541,7 +541,11 @@ IMPORTANT :
         // If no DB match, store custom data
         customTitle: matchedArtwork ? null : artworkData.title,
         customAuthor: matchedArtwork ? null : artworkData.artist,
-        customYear: matchedArtwork ? null : artworkData.year,
+        customYear: matchedArtwork
+          ? null
+          : artworkData.year
+            ? String(artworkData.year)
+            : null,
         customTechnique: matchedArtwork ? null : artworkData.technique,
         customDimensions: matchedArtwork ? null : artworkData.dimensions,
         customDescription: matchedArtwork ? null : artworkData.description,

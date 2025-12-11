@@ -1347,6 +1347,213 @@ paths:
                 success: false
                 error: 'internal_server_error'
                 message: 'Failed to retrieve categories from database'
+  /api/sync/user/artworks:
+    get:
+      tags:
+        - Sync
+      summary: Sincronizar colección de artworks del usuario
+      description: |
+        Retorna todos los artworks identificados por el usuario para sincronización con SQLite local.
+
+        **Uso en la app:**
+        - Sincronización completa al login o instalación inicial
+        - Sincronización incremental en background sync cada 15 minutos
+        - Cacheo local en tabla `user_artworks` para acceso offline
+        - El backend es la fuente de verdad para la colección del usuario
+
+        **Sync incremental:**
+        - Usar campo `updatedAt` para detectar cambios desde última sincronización
+        - Los artworks eliminados en el servidor no aparecerán en la respuesta
+        - Cliente debe comparar IDs locales vs respuesta para detectar eliminaciones
+
+        **Nota sobre imágenes:**
+        - El endpoint retorna el campo `localUri` con el path local de la imagen en el dispositivo
+        - El servidor mantiene sincronizado este path para cada usuario
+        - El path sigue el formato: `file:///data/user/0/.../artworks/{userId}/timestamp_capture.jpg`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: language
+          required: false
+          schema:
+            type: string
+            enum: [es, en]
+            default: 'es'
+          description: |
+            Código ISO 639-1 del idioma para las traducciones de descripciones y metadatos.
+            Si no existe traducción para el idioma solicitado, se devuelve español por defecto.
+        - in: query
+          name: updatedAfter
+          required: false
+          schema:
+            type: string
+            format: date-time
+            example: '2025-12-10T10:00:00Z'
+          description: |
+            Filtro opcional para sincronización incremental.
+            Retorna solo artworks modificados después de esta fecha.
+            Si no se proporciona, retorna toda la colección del usuario.
+      responses:
+        '200':
+          description: Array de artworks del usuario para sincronización
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - userId
+                    - title
+                    - author
+                    - identifiedAt
+                    - updatedAt
+                  properties:
+                    id:
+                      $ref: '#/components/schemas/UUID'
+                      description: 'UUID único del artwork en la colección del usuario'
+                    userId:
+                      $ref: '#/components/schemas/UUID'
+                      description: 'UUID del usuario propietario'
+                    artworkId:
+                      $ref: '#/components/schemas/UUID'
+                      nullable: true
+                      description: 'ID del artwork en el catálogo maestro (null si es custom/no catalogado)'
+                    title:
+                      type: string
+                      example: 'Las Meninas'
+                      description: 'Título de la obra'
+                    author:
+                      type: string
+                      example: 'Diego Velázquez'
+                      description: 'Autor/artista de la obra'
+                    year:
+                      type: string
+                      nullable: true
+                      example: '1656'
+                      description: 'Año de creación'
+                    period:
+                      type: string
+                      nullable: true
+                      example: 'Barroco Español'
+                      description: 'Período artístico o movimiento'
+                    technique:
+                      type: string
+                      nullable: true
+                      example: 'Óleo sobre lienzo'
+                      description: 'Técnica utilizada'
+                    dimensions:
+                      type: string
+                      nullable: true
+                      example: '318 cm × 276 cm'
+                      description: 'Dimensiones de la obra'
+                    country:
+                      type: string
+                      nullable: true
+                      example: 'España'
+                      description: 'País de origen o ubicación'
+                    description:
+                      type: string
+                      nullable: true
+                      example: 'Una de las obras maestras del Siglo de Oro español...'
+                      description: 'Descripción detallada localizada según parámetro language'
+                    localUri:
+                      type: string
+                      nullable: true
+                      example: 'file:///data/user/0/com.travelai.app/files/artworks/user123/1702389845123_capture.jpg'
+                      description: 'Path local de la imagen capturada en el dispositivo del usuario'
+                    identifiedAt:
+                      type: string
+                      format: date-time
+                      example: '2025-12-10T14:30:00Z'
+                      description: 'Fecha en que el usuario identificó/agregó esta obra'
+                    createdAt:
+                      type: string
+                      format: date-time
+                      example: '2025-12-10T14:30:00Z'
+                      description: 'Fecha de creación del registro'
+                    updatedAt:
+                      type: string
+                      format: date-time
+                      example: '2025-12-10T14:35:00Z'
+                      description: 'Fecha de última actualización (para sync incremental)'
+              examples:
+                full_sync:
+                  summary: Sincronización completa (primera vez o sin updatedAfter)
+                  value:
+                    - id: '550e8400-e29b-41d4-a716-446655440000'
+                      userId: '123e4567-e89b-12d3-a456-426614174000'
+                      artworkId: 'a1b2c3d4-e5f6-4789-a012-3456789abcde'
+                      title: 'Las Meninas'
+                      author: 'Diego Velázquez'
+                      year: '1656'
+                      period: 'Barroco Español'
+                      technique: 'Óleo sobre lienzo'
+                      dimensions: '318 cm × 276 cm'
+                      country: 'España'
+                      description: 'Una de las obras maestras del Siglo de Oro español. Muestra a la Infanta Margarita rodeada de sus damas de compañía (meninas) y otros miembros de la corte, incluido el propio pintor. La compleja composición con múltiples puntos de vista, el uso magistral de la luz, y el espejo que refleja al rey Felipe IV y la reina Mariana de Austria, desafían la percepción del espacio y la realidad.'
+                      localUri: 'file:///data/user/0/com.travelai.app/files/artworks/123e4567-e89b-12d3-a456-426614174000/1702389845123_capture.jpg'
+                      identifiedAt: '2025-12-10T14:30:00Z'
+                      createdAt: '2025-12-10T14:30:00Z'
+                      updatedAt: '2025-12-10T14:30:00Z'
+                    - id: '660e8400-e29b-41d4-a716-446655440001'
+                      userId: '123e4567-e89b-12d3-a456-426614174000'
+                      artworkId: 'b2c3d4e5-f6a7-5890-b123-456789abcdef'
+                      title: 'La persistencia de la memoria'
+                      author: 'Salvador Dalí'
+                      year: '1931'
+                      period: 'Surrealismo'
+                      technique: 'Óleo sobre lienzo'
+                      dimensions: '24 cm × 33 cm'
+                      country: 'España'
+                      description: 'Pintura surrealista icónica que presenta relojes blandos derritiéndose en un paisaje onírico. La obra explora conceptos de tiempo, memoria y realidad a través de la imaginería surrealista característica de Dalí.'
+                      localUri: 'file:///data/user/0/com.travelai.app/files/artworks/123e4567-e89b-12d3-a456-426614174000/1702308915456_capture.jpg'
+                      identifiedAt: '2025-12-09T10:15:00Z'
+                      createdAt: '2025-12-09T10:15:00Z'
+                      updatedAt: '2025-12-09T10:15:00Z'
+                incremental_sync:
+                  summary: Sincronización incremental (con updatedAfter)
+                  value:
+                    - id: '660e8400-e29b-41d4-a716-446655440001'
+                      userId: '123e4567-e89b-12d3-a456-426614174000'
+                      artworkId: 'b2c3d4e5-f6a7-5890-b123-456789abcdef'
+                      title: 'La persistencia de la memoria'
+                      author: 'Salvador Dalí'
+                      year: '1931'
+                      period: 'Surrealismo'
+                      technique: 'Óleo sobre lienzo'
+                      dimensions: '24 cm × 33 cm'
+                      country: 'España'
+                      description: 'Descripción actualizada con más detalles...'
+                      localUri: 'file:///data/user/0/com.travelai.app/files/artworks/123e4567-e89b-12d3-a456-426614174000/1702308915456_capture.jpg'
+                      identifiedAt: '2025-12-09T10:15:00Z'
+                      createdAt: '2025-12-09T10:15:00Z'
+                      updatedAt: '2025-12-10T14:35:00Z'
+                empty_collection:
+                  summary: Usuario sin artworks en su colección
+                  value: []
+        '401':
+          description: No autenticado - token JWT inválido o faltante
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: 'unauthorized'
+                message: 'Valid authentication token required'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: 'internal_server_error'
+                message: 'Failed to retrieve user artworks from database'
   # ----------------------------
   # WEBHOOKS
   # ----------------------------

@@ -59,39 +59,8 @@ export class ArtworkMatchingService {
         return artworkByTitle;
       }
 
-      // Fallback: Search by artist only
-      const artworkByArtist = await this.prisma.artwork.findFirst({
-        where: {
-          author: {
-            name: {
-              contains: normalizedArtist,
-              mode: 'insensitive',
-            },
-          },
-        },
-        include: {
-          author: { select: { name: true } },
-          country: {
-            include: {
-              translations: { where: { language } },
-            },
-          },
-          category: {
-            include: {
-              translations: { where: { language } },
-            },
-          },
-          translations: { where: { language } },
-        },
-      });
-
-      if (artworkByArtist) {
-        this.logger.log(`Partial match by artist: ${artworkByArtist.id}`);
-      } else {
-        this.logger.log('No match found in database');
-      }
-
-      return artworkByArtist;
+      this.logger.log('No match found in database');
+      return null;
     } catch (error) {
       this.logger.error(`Error matching artwork: ${error.message}`);
       return null;
