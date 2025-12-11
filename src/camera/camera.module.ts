@@ -9,6 +9,7 @@ import { GoogleVisionService } from './services/google-vision.service';
 import { WebScraperService } from './services/web-scraper.service';
 import { ArtworkMatchingService } from './services/artwork-matching.service';
 import { ImageProcessingService } from './services/image-processing.service';
+import { CategoryMappingService } from './services/category-mapping.service';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { ImageProcessingService } from './services/image-processing.service';
     WebScraperService,
     ArtworkMatchingService,
     ImageProcessingService,
+    CategoryMappingService,
   ],
   exports: [CameraService],
 })

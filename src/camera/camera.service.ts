@@ -10,6 +10,7 @@ import {
 import { WebScraperService } from './services/web-scraper.service';
 import { ArtworkMatchingService } from './services/artwork-matching.service';
 import { ImageProcessingService } from './services/image-processing.service';
+import { CategoryMappingService } from './services/category-mapping.service';
 import { RecognitionResponseDto } from './dto/recognition-response.dto';
 import { getMessage } from './constants/messages';
 
@@ -41,6 +42,7 @@ export class CameraService {
     private readonly webScraperService: WebScraperService,
     private readonly matchingService: ArtworkMatchingService,
     private readonly imageProcessingService: ImageProcessingService,
+    private readonly categoryMappingService: CategoryMappingService,
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
   ) {
@@ -524,6 +526,11 @@ IMPORTANT :
     matchedArtwork: any,
     artworkData: ArtworkData,
   ) {
+    // Map the period to a category ID if no DB match
+    const mappedCategoryId = matchedArtwork
+      ? null
+      : this.categoryMappingService.mapPeriodToCategory(artworkData.period);
+
     return this.prisma.userCollectionItem.create({
       data: {
         userId,
@@ -539,6 +546,7 @@ IMPORTANT :
         customDimensions: matchedArtwork ? null : artworkData.dimensions,
         customDescription: matchedArtwork ? null : artworkData.description,
         customCountry: matchedArtwork ? null : artworkData.country,
+        customCategoryId: mappedCategoryId || 'unknown',
       },
     });
   }
