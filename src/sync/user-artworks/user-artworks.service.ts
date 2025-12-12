@@ -151,7 +151,10 @@ export class UserArtworksService {
 
       return artworks;
     } catch (error) {
-      this.logger.error(`Error fetching user artworks: ${error.message}`, error.stack);
+      this.logger.error(
+        `Error fetching user artworks: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }

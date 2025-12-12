@@ -29,19 +29,6 @@ export class CategoryMappingService {
       'abstraction',
       'non-figurative',
     ],
-    'abstraction-geometrique': [
-      'geometric abstraction',
-      'abstracción geométrica',
-      'geometrique',
-      'constructivism',
-      'suprematism',
-    ],
-    'arte-conceptual': [
-      'conceptual',
-      'conceptuel',
-      'concept art',
-      'idea art',
-    ],
 
     // Academic and Classical Styles
     academismo: [
@@ -98,14 +85,6 @@ export class CategoryMappingService {
       'seurat',
       'signac',
     ],
-    'post-impressionismo': [
-      'post-impressionism',
-      'postimpresionismo',
-      'post-impressionnisme',
-      'cezanne',
-      'van gogh',
-      'gauguin',
-    ],
 
     // Renaissance
     renacimiento: [
@@ -113,17 +92,14 @@ export class CategoryMappingService {
       'renacimiento',
       'renaixement',
       'rinascimento',
-    ],
-    quattrocento: ['quattrocento', 'early renaissance', 'temprano'],
-    'alto-renacimiento': [
+      'quattrocento',
+      'early renaissance',
       'high renaissance',
       'alto renacimiento',
       'haute renaissance',
       'leonardo',
       'michelangelo',
       'rafael',
-    ],
-    'renacimiento-nordico': [
       'northern renaissance',
       'renacimiento nórdico',
       'renaissance nordique',
@@ -131,15 +107,15 @@ export class CategoryMappingService {
     ],
 
     // Baroque
-    barroco: ['baroque', 'barroco', 'barocco'],
-    'barroco-espanol': [
+    barroco: [
+      'baroque',
+      'barroco',
+      'barocco',
       'spanish baroque',
       'barroco español',
       'baroque espagnol',
       'velazquez',
       'murillo',
-    ],
-    'barroco-flamenco': [
       'flemish baroque',
       'barroco flamenco',
       'rubens',
@@ -153,28 +129,34 @@ export class CategoryMappingService {
       'gothique',
       'medieval gothic',
       'gotico',
-    ],
-    'arte-medieval-gotico': [
-      'medieval gothic',
       'gótico medieval',
       'late medieval',
     ],
-    'arte-medieval-romanico': [
-      'romanesque',
-      'románico',
-      'roman',
-      'romanico',
-    ],
-    'arte-romanico': ['romanesque', 'románico', 'romanico'],
+    'arte-romanico': ['romanesque', 'románico', 'romanico', 'roman'],
     'arte-medieval': ['medieval', 'middle ages', 'edad media', 'médiéval'],
 
     // Byzantine and Ancient
     'arte-bizantino': ['byzantine', 'bizantino', 'byzantin'],
-    'arte-antiguo': ['ancient', 'antiguo', 'antique', 'antiquity'],
+    'arte-antiguo': [
+      'ancient',
+      'antiguo',
+      'antique',
+      'antiquity',
+      'greek',
+      'griego',
+      'grec',
+      'hellenic',
+      'helenístico',
+      'egyptian',
+      'egipcio',
+      'égyptien',
+      'egypt',
+      'neolithic',
+      'neolítico',
+      'néolithique',
+      'stone age',
+    ],
     'arte-romano': ['roman', 'romano', 'romain', 'ancient rome'],
-    'arte-griego': ['greek', 'griego', 'grec', 'hellenic', 'helenístico'],
-    'arte-egipcio': ['egyptian', 'egipcio', 'égyptien', 'egypt'],
-    neolitico: ['neolithic', 'neolítico', 'néolithique', 'stone age'],
 
     // Modern Art Movements
     cubismo: ['cubism', 'cubismo', 'cubisme', 'picasso', 'braque'],
@@ -185,15 +167,12 @@ export class CategoryMappingService {
       'dali',
       'magritte',
     ],
-    dadaismo: ['dada', 'dadaism', 'dadaísmo', 'dadaïsme'],
     futurismo: ['futurism', 'futurismo', 'futurisme', 'boccioni'],
     expresionismo: [
       'expressionism',
       'expresionismo',
       'expressionnisme',
       'munch',
-    ],
-    'neo-expressionismo': [
       'neo-expressionism',
       'neo-expresionismo',
       'neue wilde',
@@ -206,30 +185,16 @@ export class CategoryMappingService {
       'contemporáneo',
       'contemporain',
       'current art',
+      'neo-pop',
+      'neo pop',
+      'new pop',
     ],
-    'neo-pop': ['neo-pop', 'neo pop', 'new pop'],
     'pop-art': ['pop art', 'pop', 'warhol', 'lichtenstein'],
     'op-art': ['op art', 'optical art', 'arte óptico'],
 
     // Realism
     realismo: ['realism', 'realismo', 'réalisme', 'realistic'],
-    'hiperrealismo-fotorrealismo': [
-      'hyperrealism',
-      'photorealism',
-      'hiperrealismo',
-      'fotorrealismo',
-    ],
-    'realismo-magico': [
-      'magic realism',
-      'realismo mágico',
-      'réalisme magique',
-    ],
     'realismo-social': ['social realism', 'realismo social', 'socialist'],
-    'realismo-socialista': [
-      'socialist realism',
-      'realismo socialista',
-      'soviet',
-    ],
 
     // Romanticism
     romanticismo: [
@@ -237,8 +202,6 @@ export class CategoryMappingService {
       'romanticismo',
       'romantisme',
       'romantic',
-    ],
-    'romanticismo-americano': [
       'american romanticism',
       'romanticismo americano',
     ],
@@ -264,17 +227,18 @@ export class CategoryMappingService {
     // Symbolism
     simbolismo: ['symbolism', 'simbolismo', 'symbolisme', 'symbolist'],
 
-    // Minimalism
-    minimalismo: [
-      'minimalism',
-      'minimalismo',
-      'minimalisme',
-      'minimal art',
-    ],
-
     // Asian Art
     'ukiyo-e': ['ukiyo-e', 'ukiyo', 'japanese prints', 'hokusai', 'hiroshige'],
-    nihonga: ['nihonga', 'japanese painting', 'pintura japonesa'],
+    nihonga: [
+      'nihonga',
+      'japanese painting',
+      'pintura japonesa',
+      'japanese',
+      'japonés',
+      'japonais',
+      'japan',
+      'edo',
+    ],
     'arte-mughal': ['mughal', 'mogol', 'moghul', 'indian miniature'],
     'arte-chino-clasico': [
       'chinese',
@@ -285,7 +249,6 @@ export class CategoryMappingService {
       'ming',
       'qing',
     ],
-    'arte-japones': ['japanese', 'japonés', 'japonais', 'japan', 'edo'],
     'arte-budista': ['buddhist', 'budista', 'bouddhiste', 'buddha'],
     'arte-islamico': ['islamic', 'islámico', 'islamique', 'muslim'],
 
@@ -312,9 +275,12 @@ export class CategoryMappingService {
       'american regionalism',
       'regionalismo americano',
       'grant wood',
+      'american realism',
+      'realismo americano',
+      'ashcan',
+      'ash can',
+      'the eight',
     ],
-    'american-realism': ['american realism', 'realismo americano'],
-    'ashcan-school': ['ashcan', 'ash can', 'the eight'],
     'hudson-river-school': [
       'hudson river',
       'hudson river school',
@@ -326,56 +292,11 @@ export class CategoryMappingService {
       'harlem',
     ],
 
-    // Latin American Art
-    'muralismo-mexicano': [
-      'mexican muralism',
-      'muralismo mexicano',
-      'rivera',
-      'orozco',
-      'siqueiros',
-    ],
-    'arte-latinoamericano': [
-      'latin american',
-      'latinoamericano',
-      'latino-américain',
-    ],
-
-    // Color Field and Abstract
-    'color-field-painting': [
-      'color field',
-      'campo de color',
-      'rothko',
-      'newman',
-    ],
-    'tachisme-art-informel': ['tachisme', 'art informel', 'informal art'],
-
     // Landscape and Nature
-    'pintura-paisaje': ['landscape', 'paisaje', 'paysage'],
-    'pintura-marina': ['marine', 'marina', 'seascape'],
     'arte-botanico': ['botanical', 'botánico', 'botanique', 'flower painting'],
-
-    // Portraiture and Genre
-    retratismo: ['portrait', 'retrato', 'portraiture'],
-    'pintura-genero': ['genre painting', 'pintura de género', 'genre'],
-
-    // Religious and Mythological
-    'arte-religioso': ['religious', 'religioso', 'religieux', 'sacred'],
-    'arte-cristiano': [
-      'christian',
-      'cristiano',
-      'chrétien',
-      'christianity',
-    ],
-    'pintura-mitologica': [
-      'mythological',
-      'mitológica',
-      'mythologique',
-      'mythology',
-    ],
 
     // Other Historical Periods
     'arte-victoriano': ['victorian', 'victoriano', 'victorien'],
-    'arte-eduardiano': ['edwardian', 'eduardiano', 'édouardien'],
     'belle-epoque': ['belle époque', 'belle epoque', 'beautiful era'],
     'arte-anglo-sajon': ['anglo-saxon', 'anglo-sajón'],
 
@@ -393,24 +314,12 @@ export class CategoryMappingService {
 
     // Outsider and Folk Art
     'art-brut': ['art brut', 'outsider art', 'raw art'],
-    'arte-naif': ['naive', 'naïf', 'naif', 'primitive', 'folk art'],
-    'arte-popular': ['folk', 'popular', 'populaire', 'traditional'],
-
-    // Photorealism and Digital
-    'arte-digital': ['digital', 'digital art', 'arte digital', 'computer art'],
 
     // Orientalism
     orientalismo: ['orientalism', 'orientalismo', 'orientalisme', 'orient'],
 
     // Primitivism
     primitivismo: ['primitivism', 'primitivismo', 'primitivisme', 'primitive'],
-
-    // Constructivism
-    constructivismo: [
-      'constructivism',
-      'constructivismo',
-      'constructivisme',
-    ],
 
     // Suprematism
     suprematismo: ['suprematism', 'suprematismo', 'suprématisme', 'malevich'],
@@ -421,197 +330,639 @@ export class CategoryMappingService {
     // Luminism
     luminismo: ['luminism', 'luminismo', 'luminisme'],
 
-    // Pre-Raphaelite
-    'arte-prerrafaelita': [
-      'pre-raphaelite',
-      'prerrafaelita',
-      'préraphaélite',
-      'prb',
-    ],
-
     // Arts and Crafts
-    'arts-and-crafts': [
-      'arts and crafts',
-      'artes y oficios',
-      'william morris',
-    ],
-
-    // Vienna Secession
-    'arte-secesion-vienesa': [
-      'vienna secession',
-      'secession',
-      'secesión vienesa',
-      'klimt',
-    ],
-
-    // Pointillism (if not covered by neo-impressionism)
-    puntillismo: ['pointillism', 'puntillismo', 'pointillisme'],
+    'arts-and-crafts': ['arts and crafts', 'artes y oficios', 'william morris'],
 
     // Naturalism
     naturalismo: ['naturalism', 'naturalismo', 'naturalisme', 'naturalist'],
 
-    // Verism
-    verismo: ['verism', 'verismo', 'vérisme'],
-
-    // Cloisonnism
-    cloisonnismo: ['cloisonnism', 'cloisonnismo', 'cloisonnisme'],
-
     // Nabis
     nabis: ['nabis', 'nabi', 'bonnard', 'vuillard'],
-
-    // Orphism
-    orfismo: ['orphism', 'orfismo', 'orphisme', 'delaunay'],
-
-    // Vorticism
-    vorticismo: ['vorticism', 'vorticismo', 'vorticisme', 'lewis'],
 
     // Precisionism
     precisionismo: ['precisionism', 'precisionismo', 'precisionnisme'],
 
-    // Social Realism variations
-    'arte-proletario': ['proletarian', 'proletario', 'prolétarien', 'worker'],
-
-    // Environmental and Land Art
-    'land-art-arte-tierra': [
-      'land art',
-      'earth art',
-      'arte de tierra',
-      'earthworks',
-    ],
-
-    // Performance and Installation
-    'arte-performance': ['performance', 'performance art', 'happening'],
-    'arte-instalacion': [
-      'installation',
-      'instalación',
-      'installation art',
-    ],
-
-    // Video and New Media
-    'video-art': ['video art', 'video', 'arte de video'],
-
-    // Kinetic Art
-    'arte-cinetico': ['kinetic', 'cinético', 'cinétique', 'kinetic art'],
-
-    // Arte Povera
-    'arte-povera': ['arte povera', 'povera'],
-
-    // Fluxus
-    fluxus: ['fluxus'],
-
-    // Neo-Dada
-    'neo-dada': ['neo-dada', 'neo dada'],
-
-    // Hard-edge painting
-    'hard-edge-painting': ['hard-edge', 'hard edge', 'geometric'],
-
-    // Lyrical Abstraction
-    'abstraccion-lirica': [
-      'lyrical abstraction',
-      'abstracción lírica',
-      'abstraction lyrique',
-    ],
-
-    // Post-Painterly Abstraction
-    'abstraccion-pospictorialista': [
-      'post-painterly',
-      'post painterly',
-      'pospictorialista',
-    ],
-
-    // Transavantgarde
-    transvanguardia: ['transavantgarde', 'transvanguardia', 'trans-avant'],
-
-    // New Leipzig School
-    'nueva-escuela-leipzig': [
-      'new leipzig',
-      'leipzig school',
-      'nueva leipzig',
-    ],
-
-    // Stuckism
-    stuckismo: ['stuckism', 'stuckismo', 'stuckist'],
-
-    // Superflat
-    superflat: ['superflat', 'murakami'],
-
-    // Neo-Geo
-    'neo-geo': ['neo-geo', 'neo geo', 'geometric'],
-
-    // Pictures Generation
-    'pictures-generation': [
-      'pictures generation',
-      'generación pictures',
-      'cindy sherman',
-    ],
-
-    // Young British Artists
-    'young-british-artists': ['yba', 'young british artists', 'brit art'],
-
-    // Neo-Romanticism
-    'neo-romanticismo': ['neo-romanticism', 'neo-romanticismo'],
-
-    // Magic Realism (different from realismo-magico)
-    'new-objectivity': [
-      'neue sachlichkeit',
-      'new objectivity',
-      'nueva objetividad',
-    ],
-
-    // Metaphysical Art
-    'arte-metafisico': [
-      'metaphysical',
-      'metafísico',
-      'métaphysique',
-      'de chirico',
-    ],
-
-    // Kinetic and Op Art overlap
-    'arte-optico-cinetico': ['optical kinetic', 'óptico cinético'],
-
-    // Neo-Classicism variations
-    'neoclasicismo-weimar': ['weimar classicism', 'weimar neoclassicism'],
-
-    // Historical Japanese styles
-    'rinpa-school': ['rinpa', 'rimpa', 'sotatsu', 'korin'],
-
-    // Chinese painting styles
-    'pintura-literati': [
-      'literati',
-      'wenren',
-      'scholar painting',
-      'pintura erudita',
-    ],
-
-    // Persian and Middle Eastern
-    'arte-persa': ['persian', 'persa', 'perse', 'iran', 'safavid'],
-
-    // Ottoman Art
-    'arte-otomano': ['ottoman', 'otomano', 'ottoman empire'],
-
     // Tibetan Art
     'arte-tibetano': ['tibetan', 'tibetano', 'tibet', 'thangka'],
 
-    // Korean Art
-    'arte-coreano': ['korean', 'coreano', 'coréen', 'korea', 'joseon'],
-
-    // Southeast Asian
-    'arte-khmer': ['khmer', 'cambodian', 'camboyano', 'angkor'],
-    'arte-thai': ['thai', 'tailandés', 'thaïlandais', 'thailand'],
-
-    // Pacific Art
-    'arte-maori': ['maori', 'maorí', 'new zealand'],
-    'arte-polinesio': ['polynesian', 'polinesio', 'polynésien'],
-
-    // Native American
-    'arte-nativo-americano': [
-      'native american',
-      'nativo americano',
-      'indigenous american',
+    // Phase 1: Modern Art Movements (20th century)
+    photorealism: [
+      'photorealism',
+      'hyperrealism',
+      'fotorrealismo',
+      'hiperrealismo',
+      'super realism',
+      'photo-realism',
+    ],
+    'pittura-metafisica': [
+      'metaphysical painting',
+      'pittura metafisica',
+      'pintura metafísica',
+      'de chirico',
+      'metaphysical art',
+    ],
+    'metaphysical-painting': [
+      'metaphysical painting',
+      'pintura metafísica',
+      'metaphysical art',
+    ],
+    dada: [
+      'dada',
+      'dadaism',
+      'dadaísmo',
+      'dadaïsme',
+      'anti-art',
+      'duchamp',
+      'tzara',
+    ],
+    'dystopian-surrealism': [
+      'dystopian surrealism',
+      'surrealismo distópico',
+      'dystopian',
+      'distopía',
+    ],
+    'surrealismo-dystopico': [
+      'dystopian surrealism',
+      'surrealismo distópico',
+      'dystopian',
+    ],
+    'cubismo-sintetico': [
+      'synthetic cubism',
+      'cubismo sintético',
+      'cubisme synthétique',
+      'collage cubism',
+    ],
+    'cubo-futurismo': [
+      'cubo-futurism',
+      'cubo futurismo',
+      'cubo futurismo',
+      'russian futurism',
+    ],
+    'expresionismo-aleman': [
+      'german expressionism',
+      'expresionismo alemán',
+      'die brücke',
+      'der blaue reiter',
+      'expressionisme allemand',
+    ],
+    'expresionismo-austriaco': [
+      'austrian expressionism',
+      'expresionismo austriaco',
+      'egon schiele',
+      'oskar kokoschka',
+    ],
+    'expresionismo-temprano': [
+      'early expressionism',
+      'expresionismo temprano',
+      'proto-expressionism',
+    ],
+    'fantastico-realismo': [
+      'fantastic realism',
+      'realismo fantástico',
+      'vienna school of fantastic realism',
+    ],
+    'neo-figurativo': [
+      'neo-figurative',
+      'nueva figuración',
+      'new figuration',
+      'néo-figuratif',
+    ],
+    divisionismo: [
+      'divisionism',
+      'divisionismo',
+      'divisionnisme',
+      'chromoluminarism',
+      'italian pointillism',
+    ],
+    orphism: [
+      'orphism',
+      'orfismo',
+      'orphisme',
+      'robert delaunay',
+      'sonia delaunay',
+      'orphic cubism',
+    ],
+    synthetism: [
+      'synthetism',
+      'sintetismo',
+      'synthétisme',
+      'cloisonnism',
+      'pont-aven school',
+      'gauguin',
+      'bernard',
+    ],
+    neoplasticismo: [
+      'neoplasticism',
+      'neoplasticismo',
+      'néoplasticisme',
+      'de stijl',
+      'mondrian',
+      'theo van doesburg',
+    ],
+    'grupo-de-los-siete': [
+      'group of seven',
+      'grupo de los siete',
+      'canadian landscape',
+      'tom thomson',
+      'lawren harris',
+    ],
+    'hague-school': [
+      'hague school',
+      'escuela de la haya',
+      'haagse school',
+      'dutch impressionism',
+      'grey school',
+    ],
+    'fotografia-de-arte-moderno': [
+      'modern art photography',
+      'fotografía de arte moderno',
+      'art photography',
+      'fine art photography',
     ],
 
-    // Inuit Art
-    'arte-inuit': ['inuit', 'eskimo', 'arctic'],
+    // Phase 2: Historical & Asian Art
+    medieval: [
+      'medieval',
+      'middle ages',
+      'edad media',
+      'médiéval',
+      'medieval art',
+    ],
+    'gotico-internacional': [
+      'international gothic',
+      'gótico internacional',
+      'gothique international',
+      'soft style',
+    ],
+    'proto-renacimiento': [
+      'proto-renaissance',
+      'proto renacimiento',
+      'early renaissance',
+      'pre-renaissance',
+      'trecento',
+    ],
+    'arte-folk': [
+      'folk art',
+      'arte popular',
+      'art populaire',
+      'traditional folk',
+    ],
+    'arte-folk-americano': ['american folk art', 'arte popular americano'],
+    'arte-folk-ucraniano': [
+      'ukrainian folk art',
+      'arte popular ucraniano',
+      'petrykivka',
+    ],
+    'yamato-e': [
+      'yamato-e',
+      'yamato e',
+      'japanese classical painting',
+      'heian period painting',
+    ],
+    'shin-hanga': [
+      'shin-hanga',
+      'shin hanga',
+      'new prints',
+      'neo-ukiyo-e',
+      'modern japanese prints',
+    ],
+    bunjinga: [
+      'bunjinga',
+      'literati painting',
+      'nanga',
+      'japanese literati',
+      'scholar painting',
+    ],
+    rinpa: [
+      'rinpa',
+      'rimpa',
+      'decorative japanese',
+      'sotatsu',
+      'korin',
+      'rinpa school',
+    ],
+    'arte-chino': [
+      'chinese art',
+      'arte chino',
+      'art chinois',
+      'chinese painting',
+      'chinese traditional',
+    ],
+    'arte-chino-tradicional': [
+      'traditional chinese art',
+      'arte chino tradicional',
+      'chinese classical',
+    ],
+    'arte-joseon': [
+      'joseon art',
+      'arte joseon',
+      'korean classical',
+      'joseon dynasty',
+    ],
+    'arte-de-la-dinastia-joseon': [
+      'joseon dynasty art',
+      'arte de la dinastía joseon',
+      'korean dynasty art',
+    ],
+    'arte-maya': [
+      'maya art',
+      'arte maya',
+      'mayan art',
+      'mesoamerican maya',
+      'maya civilization',
+    ],
+    japonismo: [
+      'japonisme',
+      'japonismo',
+      'japonism',
+      'japanese influence',
+      'japonaiserie',
+    ],
+    jugendstil: [
+      'jugendstil',
+      'german art nouveau',
+      'youth style',
+      'secession style',
+    ],
+    manuelino: [
+      'manueline',
+      'manuelino',
+      'portuguese late gothic',
+      'manuel style',
+    ],
+    'arte-mughal-miniatura': [
+      'mughal miniature',
+      'miniatura mogol',
+      'mughal miniature painting',
+      'indian miniature',
+    ],
+    'arte-rajasthani': [
+      'rajasthani painting',
+      'rajasthani art',
+      'rajasthani miniature',
+      'indian miniature rajasthan',
+    ],
+    'arte-rajput': [
+      'rajput painting',
+      'arte rajput',
+      'rajput school',
+      'rajput miniature',
+    ],
+    'arte-indio': ['indian art', 'arte indio', 'art indien'],
+    'arte-indio-tradicional': [
+      'traditional indian art',
+      'arte indio tradicional',
+    ],
+    'arte-hindu-clasico': [
+      'classical hindu art',
+      'arte hindú clásico',
+      'hindu classical',
+      'temple art',
+    ],
+    'arte-del-periodo-song': [
+      'song dynasty art',
+      'arte del período song',
+      'song period',
+      'song painting',
+    ],
+
+    // Phase 3: Specialized & Genre Categories
+    vanitas: [
+      'vanitas',
+      'vanitas still life',
+      'memento mori',
+      'mortality still life',
+    ],
+    'trompe-l-il': [
+      "trompe l'oeil",
+      "trompe l'il",
+      'optical illusion',
+      'trampantojo',
+      "trompe-l'oeil",
+    ],
+    pronkstilleven: [
+      'pronkstilleven',
+      'pronk stilleven',
+      'dutch still life',
+      'opulent still life',
+    ],
+    caricatura: ['caricature', 'caricatura', 'cartoon', 'satirical drawing'],
+    'para-surrealismo': ['para-surrealism', 'para surrealismo'],
+    'pre-rafaelismo': [
+      'pre-raphaelite',
+      'pre raphaelite',
+      'prerrafaelita',
+      'prb',
+      'pre-raphaelite brotherhood',
+    ],
+    'primitivos-flamencos': [
+      'flemish primitives',
+      'early netherlandish',
+      'primitivos flamencos',
+      'flemish renaissance early',
+      'van eyck',
+    ],
+    regionalismo: [
+      'regionalism',
+      'regionalismo',
+      'régionalisme',
+      'regional art',
+    ],
+    rembrandt: ['rembrandt', 'rembrandt style', 'rembrandt school'],
+    rembrandtesco: ['rembrandtesque', 'rembrandt-like', 'rembrandtesco'],
+    'victoriano-clasicismo': [
+      'victorian classicism',
+      'victorian neoclassicism',
+      'victoriano clasicismo',
+    ],
+    'victoriano-esteticismo': [
+      'victorian aestheticism',
+      'aesthetic movement victorian',
+      'victoriano esteticismo',
+    ],
+    'victoriano-historico': [
+      'victorian historical painting',
+      'victorian history painting',
+      'victoriano histórico',
+    ],
+    'viennese-secession': [
+      'vienna secession',
+      'viennese secession',
+      'secesión vienesa',
+      'klimt',
+      'wiener secession',
+    ],
+    'arte-aesthetic': [
+      'aesthetic art',
+      'aesthetic movement',
+      'arte estético',
+      'aestheticism',
+    ],
+    'arte-flamenco': [
+      'flemish art',
+      'arte flamenco',
+      'art flamand',
+      'netherlandish',
+    ],
+    'arte-flamenco-renacentista': [
+      'flemish renaissance',
+      'renacimiento flamenco',
+      'northern renaissance flemish',
+    ],
+    'arte-gotico-internacional': [
+      'international gothic',
+      'gótico internacional',
+      'soft style gothic',
+    ],
+    clasicismo: ['classicism', 'clasicismo', 'classicisme', 'classical style'],
+    cloisonnism: [
+      'cloisonnism',
+      'cloisonnismo',
+      'cloisonnisme',
+      'synthetism',
+      'pont-aven',
+    ],
+    costumbrismo: [
+      'costumbrismo',
+      'genre painting spanish',
+      'customs painting',
+      'manners painting',
+    ],
+    decadentismo: [
+      'decadentism',
+      'decadentismo',
+      'décadentisme',
+      'decadent movement',
+    ],
+    'diseno-moderno': ['modern design', 'diseño moderno', 'design moderne'],
+    biedermeier: ['biedermeier', 'biedermeier style', 'german biedermeier'],
+    empire: ['empire style', 'empire', 'estilo imperio', 'napoleonic style'],
+    'les-nabis': ['les nabis', 'nabis', 'bonnard', 'vuillard', 'nabi group'],
+    'mexican-muralism': [
+      'mexican muralism',
+      'muralismo mexicano',
+      'diego rivera',
+      'orozco',
+      'siqueiros',
+    ],
+    muralismo: ['muralism', 'muralismo', 'mural painting', 'mural art'],
+    'neo-rococo': ['neo-rococo', 'neo rococo', 'rococo revival'],
+    'neo-romanticismo': [
+      'neo-romanticism',
+      'neo-romanticismo',
+      'neo romanticismo',
+      'new romanticism',
+    ],
+    'neue-sachlichkeit': [
+      'neue sachlichkeit',
+      'new objectivity',
+      'nueva objetividad',
+      'magic realism german',
+    ],
+
+    // Phase 4: Remaining Categories (Rare/Niche/Regional)
+    'arte-de-las-tierras-del-noroeste': [
+      'northwest coast art',
+      'pacific northwest',
+      'native northwest',
+    ],
+    'arte-de-los-mughal-y-escuelas-regionales-estilo-kishangarh': [
+      'kishangarh mughal',
+      'kishangarh style',
+      'mughal regional kishangarh',
+    ],
+    'arte-del-siglo-xvii-estilo-dorado-holandes': [
+      'dutch golden age',
+      'siglo de oro holandés',
+      '17th century dutch',
+    ],
+    'siglo-de-oro-holandes': [
+      'dutch golden age',
+      'siglo de oro holandés',
+      'gouden eeuw',
+      '17th century dutch',
+    ],
+    'arte-del-siglo-xviii-naturalismo-cientifico': [
+      '18th century naturalism',
+      'scientific naturalism',
+      'naturalismo científico',
+    ],
+    'arte-hellenistico': [
+      'hellenistic art',
+      'arte helenístico',
+      'hellenistic period',
+      'greek hellenistic',
+    ],
+    'arte-indigena-contemporaneo': [
+      'contemporary indigenous',
+      'indigenous contemporary',
+      'arte indígena contemporáneo',
+    ],
+    'arte-indigena-plano': [
+      'plains indigenous art',
+      'plains indian art',
+      'arte indígena de las llanuras',
+    ],
+    'arte-insular': [
+      'insular art',
+      'hiberno-saxon',
+      'celtic christian',
+      'book of kells',
+    ],
+    'arte-neolitico': [
+      'neolithic art',
+      'arte neolítico',
+      'stone age',
+      'prehistoric',
+    ],
+    'arte-ottoman': [
+      'ottoman art',
+      'arte otomano',
+      'ottoman empire',
+      'turkish ottoman',
+    ],
+    'arte-persa-miniatura-safavi': [
+      'safavid persian miniature',
+      'safavid miniature',
+      'persian safavid',
+      'miniatura persa safaví',
+    ],
+    'miniatura-persa': [
+      'persian miniature',
+      'miniatura persa',
+      'persian painting',
+      'islamic persian',
+    ],
+    'arte-tradicional-africano': [
+      'traditional african art',
+      'arte tradicional africano',
+      'african traditional',
+    ],
+    'arte-zen': ['zen art', 'arte zen', 'zen buddhist', 'zen painting'],
+    'biomorfica-abstracta': [
+      'biomorphic abstraction',
+      'biomorphic abstract',
+      'biomórfica abstracta',
+      'organic abstraction',
+    ],
+    'company-style': [
+      'company style',
+      'company painting',
+      'colonial indian painting',
+      'east india company art',
+    ],
+    'deccan-painting': [
+      'deccan painting',
+      'deccani painting',
+      'deccan school',
+      'indian deccan',
+    ],
+    'ilustracion-infantil': [
+      'children illustration',
+      'ilustración infantil',
+      'childrens book art',
+    ],
+    'kalighat-painting': [
+      'kalighat painting',
+      'kalighat pat',
+      'bengali folk painting',
+    ],
+    'kishangarh-school-of-miniatures': [
+      'kishangarh school',
+      'kishangarh miniatures',
+      'rajasthani kishangarh',
+    ],
+    'paisaje-clasico': [
+      'classical landscape',
+      'paisaje clásico',
+      'ideal landscape',
+      'claude lorrain',
+    ],
+    'paisajismo-clasico': [
+      'classical landscape painting',
+      'paisajismo clásico',
+      'classical landscape tradition',
+    ],
+    'paisajismo-holandes-del-siglo-xvii': [
+      '17th century dutch landscape',
+      'dutch landscape painting',
+      'paisajismo holandés',
+    ],
+    'photo-secession': [
+      'photo-secession',
+      'photo secession',
+      'pictorialism',
+      'stieglitz',
+    ],
+    'pintura-de-vedute': [
+      'vedute painting',
+      'veduta',
+      'view painting',
+      'canaletto',
+      'vedutismo',
+    ],
+    'pintura-del-siglo-xviii': [
+      '18th century painting',
+      'pintura del siglo xviii',
+      'eighteenth century',
+    ],
+    postimpresionismo: [
+      'post-impressionism',
+      'postimpresionismo',
+      'post-impressionnisme',
+      'cezanne',
+      'van gogh',
+      'gauguin',
+    ],
+    'pre-columbino': [
+      'pre-columbian',
+      'precolombino',
+      'precolumbian',
+      'mesoamerican',
+    ],
+    'proto-cubismo': [
+      'proto-cubism',
+      'proto cubismo',
+      'early cubism',
+      'cezannesque',
+    ],
+    'punjab-hills-school': [
+      'punjab hills school',
+      'pahari painting',
+      'himalayan painting',
+    ],
+    'rajput-school': [
+      'rajput school',
+      'rajput painting school',
+      'indian rajput tradition',
+    ],
+    'realismo-expresionista': [
+      'expressionist realism',
+      'realismo expresionista',
+      'expressive realism',
+    ],
+    'slovak-modernism': [
+      'slovak modernism',
+      'modernismo eslovaco',
+      'czechoslovak modernism',
+    ],
+    'socialist-realism': [
+      'socialist realism',
+      'realismo socialista',
+      'soviet realism',
+      'social realism soviet',
+    ],
+    stimmungsimpressionismus: [
+      'stimmungsimpressionismus',
+      'mood impressionism',
+      'atmospheric impressionism',
+    ],
+    'arte-naturalista': [
+      'naturalist art',
+      'arte naturalista',
+      'naturalistic painting',
+    ],
+    unknown: ['unknown', 'unidentified', 'unclear', 'not classified'],
   };
 
   /**
@@ -652,10 +1003,10 @@ export class CategoryMappingService {
       }
     }
 
-    // No match found
+    // No match found, return 'unknown' as fallback category
     this.logger.log(
-      `No match found for period "${period}", will use default "unknown"`,
+      `No match found for period "${period}", returning "unknown" category`,
     );
-    return null;
+    return 'unknown';
   }
 }

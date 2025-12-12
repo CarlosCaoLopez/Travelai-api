@@ -55,25 +55,20 @@ export class UserCollectionService {
     const countryMap = new Map<string, number>();
 
     for (const item of collectionItems) {
-      // Handle artist (from linked artwork or custom)
-      const artistName = item.artwork?.author.name || item.customAuthor;
-      if (artistName) {
-        artistMap.set(artistName, (artistMap.get(artistName) || 0) + 1);
-      }
-
-      // Handle country (from linked artwork or custom)
-      let countryName: string | null = null;
-      if (item.artwork?.country) {
-        // Use translation if available, otherwise use default name
-        countryName =
-          item.artwork.country.translations[0]?.name ||
-          item.artwork.country.defaultName;
-      } else if (item.customCountry) {
-        countryName = item.customCountry;
-      }
-
-      if (countryName) {
-        countryMap.set(countryName, (countryMap.get(countryName) || 0) + 1);
+      if (item.customCountry === null) {
+        // Artworks WITHOUT customCountry → go to artistsInCollection
+        // Includes: linked artworks (item.artwork) AND custom artworks without country
+        const artistName = item.artwork?.author.name || item.customAuthor;
+        if (artistName) {
+          artistMap.set(artistName, (artistMap.get(artistName) || 0) + 1);
+        }
+      } else {
+        // Artworks WITH customCountry → go to countriesInCollection
+        // Only custom artworks (monuments)
+        countryMap.set(
+          item.customCountry,
+          (countryMap.get(item.customCountry) || 0) + 1,
+        );
       }
     }
 
