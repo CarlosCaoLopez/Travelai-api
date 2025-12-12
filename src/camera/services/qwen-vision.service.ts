@@ -56,11 +56,17 @@ export class QwenVisionService {
   async analyzeArtworkImage(
     base64Image: string,
     language: string = 'es',
+    topWebEntity?: { description?: string; score?: number },
   ): Promise<QwenVLResponse> {
     try {
-      const prompt = this.buildPrompt(language);
+      const prompt = this.buildPrompt(language, topWebEntity);
 
       this.logger.log(`Analyzing artwork with Qwen VL (language: ${language})`);
+      if (topWebEntity) {
+        this.logger.log(
+          `  Top web entity: "${topWebEntity.description}" (score: ${topWebEntity.score?.toFixed(2)})`,
+        );
+      }
 
       const response = await this.qwenClient.chat.completions.create({
         model: this.model,
@@ -141,9 +147,16 @@ export class QwenVisionService {
     }
   }
 
-  private buildPrompt(language: string): string {
+  private buildPrompt(
+    language: string,
+    topWebEntity?: { description?: string; score?: number },
+  ): string {
+    const entityContext = topWebEntity
+      ? `\n\nCONTEXTO ADICIONAL DE GOOGLE VISION:\nEntidad web más relevante identificada: "${topWebEntity.description}" (confianza: ${topWebEntity.score?.toFixed(2) || 'N/A'})\nEsta información puede ayudarte a confirmar o refinar tu identificación, pero confía principalmente en tu análisis visual de la imagen.`
+      : '';
+
     const prompts = {
-      es: `Eres un historiador de arte experto con amplio conocimiento sobre obras de arte mundiales. Tu especialidad es identificar y proporcionar información precisa, verificable y concisa sobre pinturas, esculturas, arquitectura y monumentos.
+      es: `Eres un historiador de arte experto con amplio conocimiento sobre obras de arte mundiales. Tu especialidad es identificar y proporcionar información precisa, verificable y concisa sobre pinturas, esculturas, arquitectura y monumentos.${entityContext}
 
 Analiza cuidadosamente la imagen proporcionada. Si reconoces una obra de arte específica, responde con un objeto JSON válido con este formato exacto:
 
@@ -182,7 +195,7 @@ IMPORTANTE:
   * Debe ser el nombre del país donde está ubicado el monumento
   * Si "isMonument" es false, omite este campo o déjalo como null`,
 
-      en: `You are an expert art historian with extensive knowledge of world artworks. Your specialty is to identify and provide accurate, verifiable, and concise information about paintings, sculptures, architecture, and monuments.
+      en: `You are an expert art historian with extensive knowledge of world artworks. Your specialty is to identify and provide accurate, verifiable, and concise information about paintings, sculptures, architecture, and monuments.${topWebEntity ? `\n\nADDITIONAL CONTEXT FROM GOOGLE VISION:\nMost relevant web entity identified: "${topWebEntity.description}" (confidence: ${topWebEntity.score?.toFixed(2) || 'N/A'})\nThis information can help you confirm or refine your identification, but rely primarily on your visual analysis of the image.` : ''}
 
 Carefully analyze the provided image. If you recognize a specific artwork, respond with a valid JSON object in this exact format:
 
@@ -221,7 +234,7 @@ IMPORTANT:
   * Must be the name of the country where the monument is located
   * If "isMonument" is false, omit this field or leave it as null`,
 
-      fr: `Vous êtes un historien d'art expert avec une connaissance approfondie des œuvres d'art mondiales. Votre spécialité est d'identifier et de fournir des informations précises, vérifiables et concises sur les peintures, sculptures, architecture et monuments.
+      fr: `Vous êtes un historien d'art expert avec une connaissance approfondie des œuvres d'art mondiales. Votre spécialité est d'identifier et de fournir des informations précises, vérifiables et concises sur les peintures, sculptures, architecture et monuments.${topWebEntity ? `\n\nCONTEXTE ADDITIONNEL DE GOOGLE VISION :\nEntité web la plus pertinente identifiée : "${topWebEntity.description}" (confiance : ${topWebEntity.score?.toFixed(2) || 'N/A'})\nCette information peut vous aider à confirmer ou affiner votre identification, mais fiez-vous principalement à votre analyse visuelle de l'image.` : ''}
 
 Analysez attentivement l'image fournie. Si vous reconnaissez une œuvre d'art spécifique, répondez avec un objet JSON valide dans ce format exact :
 

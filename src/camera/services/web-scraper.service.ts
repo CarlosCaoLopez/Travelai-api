@@ -75,7 +75,7 @@ export class WebScraperService {
       });
 
       // Clean up whitespace
-      return text.replace(/\s+/g, ' ').trim().substring(0, 10000);
+      return text.replace(/\s+/g, ' ').trim().substring(0, 5000);
     } catch (error) {
       this.logger.warn(`Failed to extract text: ${error.message}`);
       return '';

@@ -10,6 +10,7 @@ import { WebScraperService } from './services/web-scraper.service';
 import { ArtworkMatchingService } from './services/artwork-matching.service';
 import { ImageProcessingService } from './services/image-processing.service';
 import { CategoryMappingService } from './services/category-mapping.service';
+import { PlaywrightScraperService } from './services/playwright-scraper.service';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { CategoryMappingService } from './services/category-mapping.service';
     QwenVisionService,
     GoogleVisionService,
     WebScraperService,
+    PlaywrightScraperService,
     ArtworkMatchingService,
     ImageProcessingService,
     CategoryMappingService,

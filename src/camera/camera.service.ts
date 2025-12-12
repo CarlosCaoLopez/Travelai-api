@@ -8,6 +8,7 @@ import {
   WebDetection,
 } from './services/google-vision.service';
 import { WebScraperService } from './services/web-scraper.service';
+import { PlaywrightScraperService } from './services/playwright-scraper.service';
 import { ArtworkMatchingService } from './services/artwork-matching.service';
 import { ImageProcessingService } from './services/image-processing.service';
 import { CategoryMappingService } from './services/category-mapping.service';
@@ -33,6 +34,7 @@ interface ArtworkData {
 export class CameraService {
   private readonly logger = new Logger(CameraService.name);
   private readonly minConfidence: number;
+  private readonly qwenVLMinConfidence: number;
   private readonly qwenClient: OpenAI;
   private readonly qwenModel: string;
 
@@ -40,6 +42,7 @@ export class CameraService {
     private readonly qwenVisionService: QwenVisionService,
     private readonly googleVisionService: GoogleVisionService,
     private readonly webScraperService: WebScraperService,
+    private readonly playwrightScraperService: PlaywrightScraperService,
     private readonly matchingService: ArtworkMatchingService,
     private readonly imageProcessingService: ImageProcessingService,
     private readonly categoryMappingService: CategoryMappingService,
@@ -49,6 +52,10 @@ export class CameraService {
     this.minConfidence = this.configService.get<number>(
       'MIN_CONFIDENCE_THRESHOLD',
       0.6,
+    );
+    this.qwenVLMinConfidence = this.configService.get<number>(
+      'QWEN_VL_HIGH_CONFIDENCE_THRESHOLD',
+      0.98,
     );
 
     // Initialize OpenAI client for Qwen text model
@@ -81,82 +88,209 @@ export class CameraService {
     // 1. Convert image to base64 for AI analysis
     const base64Image = this.imageProcessingService.bufferToBase64(imageBuffer);
 
-    // 2. NEW FLOW: Parallel calls to Qwen VL and Google Vision
-    this.logger.log(
-      '🚀 Starting parallel analysis: Qwen VL + Google Vision...',
+    // 2. NEW FLOW: Sequential execution starting with Google Vision
+    this.logger.log('🔍 Step 1: Google Vision API');
+    const googleVisionStart = Date.now();
+    const visionResult = await this.googleVisionService.detectWeb(
+      base64Image,
+      language,
     );
-    const [qwenResult, visionResult] = await Promise.all([
-      this.qwenVisionService.analyzeArtworkImage(base64Image, language),
-      this.googleVisionService.detectWeb(base64Image, language),
-    ]);
+    const googleVisionTime = Date.now() - googleVisionStart;
+    this.logger.log(`⏱️ Google Vision completed in ${googleVisionTime}ms`);
 
     let artworkData: ArtworkData | null = null;
     let identified = false;
 
-    // Log results from parallel calls
+    // Log complete Google Vision results
+    this.logger.log('📊 Google Vision complete results:');
     this.logger.log(
-      `📊 Qwen VL result: identified=${qwenResult.identified}, confidence=${qwenResult.confidence}`,
+      `  - Pages with matching images: ${visionResult.pagesWithMatchingImages.length}`,
     );
     this.logger.log(
-      `📊 Google Vision result: ${visionResult.pagesWithMatchingImages.length} pages with matching images`,
+      `  - Visually similar images: ${visionResult.visuallySimilarImages.length}`,
     );
+    this.logger.log(`  - Web entities: ${visionResult.webEntities.length}`);
+    this.logger.log(
+      `  - Best guess labels: ${visionResult.bestGuessLabels.length}`,
+    );
+
+    // Log best guess labels
+    if (visionResult.bestGuessLabels.length > 0) {
+      this.logger.log('🏷️ Best Guess Labels:');
+      visionResult.bestGuessLabels.forEach((label, idx) => {
+        this.logger.log(
+          `  ${idx + 1}. "${label.label}"${label.languageCode ? ` (${label.languageCode})` : ''}`,
+        );
+      });
+    }
+
+    // Log web entities with scores
+    if (visionResult.webEntities.length > 0) {
+      this.logger.log('🌐 Web Entities (top 10):');
+      visionResult.webEntities.slice(0, 10).forEach((entity, idx) => {
+        this.logger.log(
+          `  ${idx + 1}. ${entity.description || 'N/A'} (score: ${entity.score?.toFixed(2) || 'N/A'})`,
+        );
+      });
+    }
+
+    // Log URLs
     if (visionResult.pagesWithMatchingImages.length > 0) {
       this.logger.log(
         `📌 URLs found:\n${visionResult.pagesWithMatchingImages
           .slice(0, 5)
-          .map((page, idx) => `  ${idx + 1}. ${page.url}`)
+          .map(
+            (page, idx) =>
+              `  ${idx + 1}. ${page.url}${page.pageTitle ? ` - "${page.pageTitle}"` : ''}`,
+          )
           .join(
             '\n',
           )}${visionResult.pagesWithMatchingImages.length > 5 ? `\n  ... and ${visionResult.pagesWithMatchingImages.length - 5} more` : ''}`,
       );
     }
 
-    // 3. Evaluate Qwen VL result first (HIGH CONFIDENCE CHECK)
-    const QWEN_VL_HIGH_CONFIDENCE = 0.99;
-    if (
-      qwenResult.identified &&
-      qwenResult.confidence >= QWEN_VL_HIGH_CONFIDENCE
-    ) {
-      artworkData = qwenResult;
-      identified = true;
+    // 2. Web Scraping with HTTP requests
+    this.logger.log('📄 Step 2: HTTP Web Scraping');
+    const urls = this.webScraperService.prioritizeArtUrls(
+      visionResult.pagesWithMatchingImages || [],
+    );
+
+    let combinedText = '';
+    let scrapedSuccessfully = false;
+
+    if (urls.length > 0) {
+      const scrapingStart = Date.now();
+      const htmlResults = await this.webScraperService.fetchMultipleUrls(
+        urls.slice(0, 5),
+      );
+      const scrapingTime = Date.now() - scrapingStart;
+
+      combinedText = htmlResults
+        .map((result) =>
+          this.webScraperService.extractCleanText(result.html || ''),
+        )
+        .filter((text) => text.trim().length > 0)
+        .join('\n\n');
+
+      scrapedSuccessfully = combinedText.length >= 100;
       this.logger.log(
-        `✅ HIGH CONFIDENCE identification via Qwen VL: "${artworkData.title}", confidence: ${artworkData.confidence}`,
+        `📊 HTTP scraping: ${combinedText.length} chars from ${urls.length} URLs in ${scrapingTime}ms`,
       );
     } else {
-      // 4. Fallback: Enhanced Web Scraping with Qwen Flash
-      if (qwenResult.identified) {
+      this.logger.log('⚠️ No URLs found from Google Vision');
+    }
+
+    // 3. Playwright Fallback (if HTTP scraping failed)
+    const minLength = parseInt(
+      this.configService.get('MIN_SCRAPED_TEXT_LENGTH', '100'),
+      10,
+    );
+
+    if (!scrapedSuccessfully && urls.length > 0) {
+      this.logger.log(
+        `⚠️ HTTP scraping insufficient (${combinedText.length} < ${minLength}), using Playwright...`,
+      );
+
+      const playwrightStart = Date.now();
+      const renderedContent =
+        await this.playwrightScraperService.fetchRenderedContent(urls[0]);
+      const playwrightTime = Date.now() - playwrightStart;
+
+      if (renderedContent && renderedContent.length >= minLength) {
+        combinedText = renderedContent;
+        scrapedSuccessfully = true;
         this.logger.log(
-          `⚠️ Qwen VL confidence too low (${qwenResult.confidence} < ${QWEN_VL_HIGH_CONFIDENCE}), falling back to web scraping...`,
+          `✅ Playwright success: ${renderedContent.length} chars in ${playwrightTime}ms`,
         );
       } else {
         this.logger.log(
-          `⚠️ Qwen VL could not identify artwork, falling back to web scraping...`,
+          `❌ Playwright also failed: ${renderedContent?.length || 0} chars in ${playwrightTime}ms`,
         );
       }
+    }
 
-      if (visionResult.pagesWithMatchingImages.length > 0) {
+    // 4. Qwen Flash Analysis (primary method)
+    this.logger.log('🤖 Step 3: Qwen Flash Analysis (primary)');
+
+    if (scrapedSuccessfully && combinedText.length >= minLength) {
+      artworkData = await this.analyzeWebContentForArtworkEnhanced(
+        combinedText,
+        urls,
+        visionResult.bestGuessLabels || [],
+        visionResult.webEntities || [],
+        language,
+      );
+
+      identified =
+        artworkData !== null && artworkData.confidence >= this.minConfidence;
+
+      if (identified) {
         this.logger.log(
-          `🔍 Attempting enhanced web scraping with ${visionResult.pagesWithMatchingImages.length} URLs...`,
+          `✅ Identified via Qwen Flash: "${artworkData?.title}", confidence: ${artworkData?.confidence}`,
         );
-        artworkData = await this.fallbackEnhancedWebScraping(
-          visionResult,
-          qwenResult,
-          language,
-        );
-        identified =
-          artworkData !== null && artworkData.confidence >= this.minConfidence;
-
-        if (identified) {
-          this.logger.log(
-            `✅ Identified via Enhanced Web Scraping: "${artworkData?.title}", confidence: ${artworkData?.confidence}`,
-          );
-        } else {
-          this.logger.log(
-            `❌ Enhanced web scraping failed to identify with sufficient confidence`,
-          );
-        }
       } else {
-        this.logger.log('❌ No URLs found by Google Vision for web scraping');
+        this.logger.log(
+          `❌ Qwen Flash failed to identify with sufficient confidence`,
+        );
+      }
+    } else {
+      this.logger.log(
+        `⚠️ Insufficient content for Qwen Flash (${combinedText.length} chars), will try Qwen VL`,
+      );
+    }
+
+    // 5. Qwen VL Fallback (only if Qwen Flash failed)
+    if (!identified) {
+      this.logger.log('👁️ Step 4: Qwen VL Analysis (fallback - Flash failed)');
+
+      // Extract top web entity for Qwen VL
+      const topEntity =
+        visionResult.webEntities.length > 0
+          ? visionResult.webEntities.reduce((prev, current) =>
+              (current.score || 0) > (prev.score || 0) ? current : prev,
+            )
+          : undefined;
+
+      const qwenVLStart = Date.now();
+      const qwenResult = await this.qwenVisionService.analyzeArtworkImage(
+        base64Image,
+        language,
+        topEntity,
+      );
+      const qwenVLTime = Date.now() - qwenVLStart;
+      this.logger.log(
+        `⏱️ Qwen VL completed in ${qwenVLTime}ms with confidence ${qwenResult.confidence}`,
+      );
+
+      // Log results from Qwen VL
+      this.logger.log('📊 Qwen VL result:');
+      this.logger.log(`  - Identified: ${qwenResult.identified}`);
+      this.logger.log(`  - Confidence: ${qwenResult.confidence}`);
+      if (qwenResult.identified) {
+        this.logger.log(`  - Title: "${qwenResult.title || 'N/A'}"`);
+        this.logger.log(`  - Artist: "${qwenResult.artist || 'N/A'}"`);
+        this.logger.log(`  - Year: "${qwenResult.year || 'N/A'}"`);
+        this.logger.log(`  - Period: "${qwenResult.period || 'N/A'}"`);
+        this.logger.log(`  - Is Monument: ${qwenResult.isMonument || false}`);
+        if (qwenResult.isMonument && qwenResult.country) {
+          this.logger.log(`  - Country: "${qwenResult.country}"`);
+        }
+      }
+
+      // Use Qwen VL result if identified with sufficient confidence
+      if (
+        qwenResult.identified &&
+        qwenResult.confidence >= this.qwenVLMinConfidence
+      ) {
+        artworkData = qwenResult;
+        identified = true;
+        this.logger.log(
+          `✅ Identified via Qwen VL (fallback): "${artworkData.title}", confidence: ${artworkData.confidence} (threshold: ${this.qwenVLMinConfidence})`,
+        );
+      } else {
+        this.logger.log(
+          `❌ Qwen VL failed to identify with sufficient confidence (${qwenResult.confidence} < ${this.qwenVLMinConfidence})`,
+        );
       }
     }
 
@@ -201,15 +335,15 @@ export class CameraService {
    */
   private async fallbackEnhancedWebScraping(
     visionData: WebDetection,
-    qwenVLResult: ArtworkData,
+    _qwenVLResult: ArtworkData,
     language: string,
   ): Promise<ArtworkData | null> {
     // Get ALL URLs (prioritize museum/Wikipedia, but include more)
     const allUrls = this.webScraperService.prioritizeArtUrls(
       visionData.pagesWithMatchingImages,
     );
-    // Limit to first 10 URLs to avoid excessive scraping time
-    const urls = allUrls.slice(0, 10);
+    // Limit to first 5 URLs to avoid excessive scraping time
+    const urls = allUrls.slice(0, 5);
 
     if (urls.length === 0) {
       this.logger.log('No matching pages found');
@@ -219,10 +353,12 @@ export class CameraService {
     this.logger.log(`📡 Scraping ${urls.length} URLs in parallel...`);
 
     // Scrape web pages
+    const startScraping = Date.now();
     const htmlResults = await this.webScraperService.fetchMultipleUrls(urls);
+    const scrapingTime = Date.now() - startScraping;
     const successfulScrapes = htmlResults.filter((r) => r.html);
     this.logger.log(
-      `✅ Successfully scraped ${successfulScrapes.length}/${urls.length} URLs`,
+      `✅ Successfully scraped ${successfulScrapes.length}/${urls.length} URLs in ${scrapingTime}ms`,
     );
 
     const combinedText = successfulScrapes
@@ -236,12 +372,16 @@ export class CameraService {
 
     // Use enhanced Qwen Flash analysis with URLs (NO Qwen VL context)
     this.logger.log('🤖 Analyzing with Qwen Flash (enhanced with URLs)...');
+    const startQwenFlash = Date.now();
     const artworkInfo = await this.analyzeWebContentForArtworkEnhanced(
       combinedText,
       urls,
       visionData.bestGuessLabels,
+      visionData.webEntities,
       language,
     );
+    const qwenFlashTime = Date.now() - startQwenFlash;
+    this.logger.log(`⏱️ Qwen Flash analysis took ${qwenFlashTime}ms`);
 
     return artworkInfo;
   }
@@ -254,6 +394,11 @@ export class CameraService {
     webContent: string,
     rawUrls: string[],
     bestGuessLabels: Array<{ label: string; languageCode?: string }>,
+    webEntities: Array<{
+      entityId?: string;
+      score?: number;
+      description?: string;
+    }>,
     language: string,
   ): Promise<ArtworkData | null> {
     try {
@@ -261,6 +406,7 @@ export class CameraService {
         webContent,
         rawUrls,
         bestGuessLabels,
+        webEntities,
         language,
       );
 
@@ -270,6 +416,19 @@ export class CameraService {
       this.logger.log(
         `  Best guess labels: ${bestGuessLabels.map((l) => l.label).join(', ')}`,
       );
+
+      // Log top entity
+      const topEntity =
+        webEntities.length > 0
+          ? webEntities.reduce((prev, current) =>
+              (current.score || 0) > (prev.score || 0) ? current : prev,
+            )
+          : null;
+      if (topEntity) {
+        this.logger.log(
+          `  Top web entity: "${topEntity.description}" (score: ${topEntity.score?.toFixed(2)})`,
+        );
+      }
 
       const response = await this.qwenClient.chat.completions.create({
         model: this.qwenModel,
@@ -320,10 +479,27 @@ export class CameraService {
     webContent: string,
     rawUrls: string[],
     bestGuessLabels: Array<{ label: string; languageCode?: string }>,
+    webEntities: Array<{
+      entityId?: string;
+      score?: number;
+      description?: string;
+    }>,
     language: string,
   ): string {
     const hints = bestGuessLabels.map((l) => l.label).join(', ');
     const urlsList = rawUrls.map((url, idx) => `${idx + 1}. ${url}`).join('\n');
+
+    // Get top web entity (highest score)
+    const topEntity =
+      webEntities.length > 0
+        ? webEntities.reduce((prev, current) =>
+            (current.score || 0) > (prev.score || 0) ? current : prev,
+          )
+        : null;
+
+    const topEntityInfo = topEntity
+      ? `${topEntity.description} (confianza: ${(topEntity.score || 0).toFixed(2)})`
+      : 'No disponible';
 
     const prompts = {
       es: `Eres un historiador de arte experto con amplio conocimiento sobre obras de arte mundiales. Tu especialidad es identificar y proporcionar información precisa, verificable y concisa sobre pinturas, esculturas, arquitectura y monumentos.
@@ -333,12 +509,14 @@ Tu misión es encontrar e identificar una obra de arte específica a partir de l
 URLS ENCONTRADAS EN LA WEB (${rawUrls.length} fuentes):
 ${urlsList}
 
+ENTIDAD PRINCIPAL IDENTIFICADA POR GOOGLE VISION: ${topEntityInfo}
+
 PISTAS DE LA BÚSQUEDA WEB: ${hints || 'No disponibles'}
 
 INFORMACIÓN EXTRAÍDA DE LAS PÁGINAS WEB:
 ${webContent}
 
-Analiza cuidadosamente esta información. Las URLs proporcionadas pueden indicar la fuente y veracidad de la información. Prioriza información de fuentes confiables como museos, Wikipedia, y sitios culturales reconocidos.
+Analiza cuidadosamente esta información. La "Entidad Principal" es la identificación más confiable que Google ha realizado de la imagen. Las URLs proporcionadas pueden indicar la fuente y veracidad de la información. Prioriza información de fuentes confiables como museos, Wikipedia, y sitios culturales reconocidos.
 
 Si reconoces una obra de arte específica, responde con un objeto JSON válido con este formato exacto:
 
@@ -386,12 +564,14 @@ Your mission is to find and identify a specific artwork from the information obt
 URLS FOUND ON THE WEB (${rawUrls.length} sources):
 ${urlsList}
 
+TOP ENTITY IDENTIFIED BY GOOGLE VISION: ${topEntityInfo}
+
 WEB SEARCH HINTS: ${hints || 'Not available'}
 
 INFORMATION EXTRACTED FROM WEB PAGES:
 ${webContent}
 
-Carefully analyze this information. The URLs provided can indicate the source and veracity of the information. Prioritize information from trusted sources such as museums, Wikipedia, and recognized cultural sites.
+Carefully analyze this information. The "Top Entity" is the most reliable identification that Google has made of the image. The URLs provided can indicate the source and veracity of the information. Prioritize information from trusted sources such as museums, Wikipedia, and recognized cultural sites.
 
 If you recognize a specific artwork, respond with a valid JSON object in this exact format:
 
@@ -439,12 +619,14 @@ Votre mission est de trouver et identifier une œuvre d'art spécifique à parti
 URLS TROUVÉES SUR LE WEB (${rawUrls.length} sources) :
 ${urlsList}
 
+ENTITÉ PRINCIPALE IDENTIFIÉE PAR GOOGLE VISION : ${topEntityInfo}
+
 INDICES DE LA RECHERCHE WEB : ${hints || 'Non disponibles'}
 
 INFORMATIONS EXTRAITES DES PAGES WEB :
 ${webContent}
 
-Analysez attentivement ces informations. Les URLs fournies peuvent indiquer la source et la véracité de l'information. Priorisez les informations provenant de sources fiables telles que les musées, Wikipédia et les sites culturels reconnus.
+Analysez attentivement ces informations. L'"Entité Principale" est l'identification la plus fiable que Google a réalisée de l'image. Les URLs fournies peuvent indiquer la source et la véracité de l'information. Priorisez les informations provenant de sources fiables telles que les musées, Wikipédia et les sites culturels reconnus.
 
 Si vous reconnaissez une œuvre d'art spécifique, répondez avec un objet JSON valide dans ce format exact :
 
@@ -534,6 +716,7 @@ IMPORTANT :
     return this.prisma.userCollectionItem.create({
       data: {
         userId,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
         artworkId: matchedArtwork?.id || null,
         capturedImageUrl,
         identifiedAt: new Date(),
