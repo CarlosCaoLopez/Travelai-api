@@ -286,7 +286,9 @@ export class ArtworksService {
 
       // If no results, return empty array
       if (photoCounts.length === 0) {
-        this.logger.log('No photographed artworks found in the specified time window');
+        this.logger.log(
+          'No photographed artworks found in the specified time window',
+        );
         return {
           artworks: [],
           timeWindow: {

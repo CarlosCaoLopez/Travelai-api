@@ -11,8 +11,7 @@ export class PlaywrightScraperService implements OnModuleDestroy {
   private readonly blockResources: boolean;
 
   constructor(private readonly configService: ConfigService) {
-    this.headless =
-      configService.get('PLAYWRIGHT_HEADLESS', 'true') === 'true';
+    this.headless = configService.get('PLAYWRIGHT_HEADLESS', 'true') === 'true';
     this.timeout = parseInt(
       configService.get('PLAYWRIGHT_TIMEOUT_MS', '30000'),
       10,

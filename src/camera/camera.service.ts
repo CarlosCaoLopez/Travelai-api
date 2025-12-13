@@ -101,23 +101,93 @@ export class CameraService {
     let artworkData: ArtworkData | null = null;
     let identified = false;
 
+    // FALLBACK: If no matching pages found, try object detection + crop + retry
+    let finalVisionResult = visionResult;
+
+    if (visionResult.pagesWithMatchingImages.length === 0) {
+      this.logger.log(
+        '⚠️ No matching pages found, attempting object detection fallback...',
+      );
+
+      const objectDetectionStart = Date.now();
+      const objectResult =
+        await this.googleVisionService.detectObjects(base64Image);
+      const objectDetectionTime = Date.now() - objectDetectionStart;
+
+      this.logger.log(
+        `⏱️ Object detection completed in ${objectDetectionTime}ms`,
+      );
+      this.logger.log(
+        `📊 Found ${objectResult.objects.length} relevant objects`,
+      );
+
+      if (objectResult.hasRelevantObjects && objectResult.primaryObject) {
+        this.logger.log(
+          `🎯 Primary object: ${objectResult.primaryObject.name} (score: ${objectResult.primaryObject.score.toFixed(2)})`,
+        );
+
+        try {
+          // Crop image to object bounds
+          const croppedBuffer =
+            await this.imageProcessingService.cropByBoundingBox(
+              imageBuffer,
+              objectResult.primaryObject.boundingPoly,
+            );
+
+          // Convert cropped image to base64
+          const croppedBase64 =
+            this.imageProcessingService.bufferToBase64(croppedBuffer);
+
+          // Retry Google Vision with cropped image
+          this.logger.log('🔍 Retrying Google Vision with cropped image...');
+          const retryStart = Date.now();
+          const croppedVisionResult = await this.googleVisionService.detectWeb(
+            croppedBase64,
+            language,
+          );
+          const retryTime = Date.now() - retryStart;
+
+          this.logger.log(
+            `⏱️ Cropped image detection completed in ${retryTime}ms: ${croppedVisionResult.pagesWithMatchingImages.length} URLs found`,
+          );
+
+          if (croppedVisionResult.pagesWithMatchingImages.length > 0) {
+            finalVisionResult = croppedVisionResult;
+            this.logger.log(
+              '✅ Fallback successful! Using cropped image results.',
+            );
+          } else {
+            this.logger.log('❌ Cropped image also found no URLs');
+          }
+        } catch (error) {
+          this.logger.error(
+            `Failed to crop/retry: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          );
+        }
+      } else {
+        this.logger.log('❌ No relevant objects detected for cropping');
+      }
+    }
+
     // Log complete Google Vision results
     this.logger.log('📊 Google Vision complete results:');
     this.logger.log(
-      `  - Pages with matching images: ${visionResult.pagesWithMatchingImages.length}`,
+      `  - Pages with matching images: ${finalVisionResult.pagesWithMatchingImages.length}`,
     );
     this.logger.log(
-      `  - Visually similar images: ${visionResult.visuallySimilarImages.length}`,
+      `  - Visually similar images: ${finalVisionResult.visuallySimilarImages.length}`,
     );
-    this.logger.log(`  - Web entities: ${visionResult.webEntities.length}`);
     this.logger.log(
-      `  - Best guess labels: ${visionResult.bestGuessLabels.length}`,
+      `  - Web entities: ${finalVisionResult.webEntities.length}`,
+    );
+    this.logger.log(
+      `  - Best guess labels: ${finalVisionResult.bestGuessLabels.length}`,
     );
 
     // Log best guess labels
-    if (visionResult.bestGuessLabels.length > 0) {
+    if (finalVisionResult.bestGuessLabels.length > 0) {
       this.logger.log('🏷️ Best Guess Labels:');
-      visionResult.bestGuessLabels.forEach((label, idx) => {
+      finalVisionResult.bestGuessLabels.forEach((label, idx) => {
         this.logger.log(
           `  ${idx + 1}. "${label.label}"${label.languageCode ? ` (${label.languageCode})` : ''}`,
         );
@@ -125,9 +195,9 @@ export class CameraService {
     }
 
     // Log web entities with scores
-    if (visionResult.webEntities.length > 0) {
+    if (finalVisionResult.webEntities.length > 0) {
       this.logger.log('🌐 Web Entities (top 10):');
-      visionResult.webEntities.slice(0, 10).forEach((entity, idx) => {
+      finalVisionResult.webEntities.slice(0, 10).forEach((entity, idx) => {
         this.logger.log(
           `  ${idx + 1}. ${entity.description || 'N/A'} (score: ${entity.score?.toFixed(2) || 'N/A'})`,
         );
@@ -135,34 +205,40 @@ export class CameraService {
     }
 
     // Log URLs
-    if (visionResult.pagesWithMatchingImages.length > 0) {
+    if (finalVisionResult.pagesWithMatchingImages.length > 0) {
       this.logger.log(
-        `📌 URLs found:\n${visionResult.pagesWithMatchingImages
-          .slice(0, 5)
+        `📌 URLs found:\n${finalVisionResult.pagesWithMatchingImages
+          .slice(0, 20)
           .map(
             (page, idx) =>
               `  ${idx + 1}. ${page.url}${page.pageTitle ? ` - "${page.pageTitle}"` : ''}`,
           )
           .join(
             '\n',
-          )}${visionResult.pagesWithMatchingImages.length > 5 ? `\n  ... and ${visionResult.pagesWithMatchingImages.length - 5} more` : ''}`,
+          )}${finalVisionResult.pagesWithMatchingImages.length > 5 ? `\n  ... and ${finalVisionResult.pagesWithMatchingImages.length - 5} more` : ''}`,
       );
     }
 
     // 2. Web Scraping with HTTP requests
     this.logger.log('📄 Step 2: HTTP Web Scraping');
     const urls = this.webScraperService.prioritizeArtUrls(
-      visionResult.pagesWithMatchingImages || [],
+      finalVisionResult.pagesWithMatchingImages || [],
     );
 
     let combinedText = '';
     let scrapedSuccessfully = false;
 
     if (urls.length > 0) {
-      const scrapingStart = Date.now();
-      const htmlResults = await this.webScraperService.fetchMultipleUrls(
-        urls.slice(0, 5),
+      const urlsToScrape = urls.slice(0, 5);
+      this.logger.log(
+        `🔗 URLs to scrape (${urlsToScrape.length}):\n${urlsToScrape
+          .map((url, idx) => `  ${idx + 1}. ${url}`)
+          .join('\n')}`,
       );
+
+      const scrapingStart = Date.now();
+      const htmlResults =
+        await this.webScraperService.fetchMultipleUrls(urlsToScrape);
       const scrapingTime = Date.now() - scrapingStart;
 
       combinedText = htmlResults
@@ -190,6 +266,7 @@ export class CameraService {
       this.logger.log(
         `⚠️ HTTP scraping insufficient (${combinedText.length} < ${minLength}), using Playwright...`,
       );
+      this.logger.log(`🎭 Playwright will scrape: ${urls[0]}`);
 
       const playwrightStart = Date.now();
       const renderedContent =
@@ -200,11 +277,11 @@ export class CameraService {
         combinedText = renderedContent;
         scrapedSuccessfully = true;
         this.logger.log(
-          `✅ Playwright success: ${renderedContent.length} chars in ${playwrightTime}ms`,
+          `✅ Playwright success on ${urls[0]}: ${renderedContent.length} chars in ${playwrightTime}ms`,
         );
       } else {
         this.logger.log(
-          `❌ Playwright also failed: ${renderedContent?.length || 0} chars in ${playwrightTime}ms`,
+          `❌ Playwright also failed on ${urls[0]}: ${renderedContent?.length || 0} chars in ${playwrightTime}ms`,
         );
       }
     }
@@ -216,8 +293,8 @@ export class CameraService {
       artworkData = await this.analyzeWebContentForArtworkEnhanced(
         combinedText,
         urls,
-        visionResult.bestGuessLabels || [],
-        visionResult.webEntities || [],
+        finalVisionResult.bestGuessLabels || [],
+        finalVisionResult.webEntities || [],
         language,
       );
 
@@ -245,8 +322,8 @@ export class CameraService {
 
       // Extract top web entity for Qwen VL
       const topEntity =
-        visionResult.webEntities.length > 0
-          ? visionResult.webEntities.reduce((prev, current) =>
+        finalVisionResult.webEntities.length > 0
+          ? finalVisionResult.webEntities.reduce((prev, current) =>
               (current.score || 0) > (prev.score || 0) ? current : prev,
             )
           : undefined;

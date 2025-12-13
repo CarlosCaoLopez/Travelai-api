@@ -93,6 +93,7 @@ export class WebScraperService {
       'wikiart.org',
       'artsy.net',
       'museum',
+      'art',
       'moma.org',
       'louvre.fr',
       'metmuseum.org',
