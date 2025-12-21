@@ -107,7 +107,9 @@ Enfócate en:
 - Qué ver (obras destacadas, arquitectura, naturaleza)
 - Tiempo estimado de visita recomendado
 
-La descripción debe ser atractiva para turistas interesados en cultura.`;
+La descripción debe ser atractiva para turistas interesados en cultura.
+
+IMPORTANTE: La descripción debe estar completamente EN ESPAÑOL. No uses palabras en inglés u otros idiomas.`;
     }
 
     if (language === 'en') {
@@ -118,7 +120,9 @@ Focus on:
 - What to see (notable works, architecture, nature)
 - Recommended visit duration
 
-The description should be engaging for tourists interested in culture.`;
+The description should be engaging for tourists interested in culture.
+
+IMPORTANT: The description must be completely IN ENGLISH. Do not use Spanish or other language words.`;
     }
 
     // Fallback to Spanish

@@ -43,13 +43,11 @@ export class WebhooksService {
           // Update email if changed (edge case)
           email,
           displayName: raw_user_meta_data?.displayName || null,
-          avatarUrl: raw_user_meta_data?.avatarUrl || null,
         },
         create: {
           id,
           email,
           displayName: raw_user_meta_data?.displayName || null,
-          avatarUrl: raw_user_meta_data?.avatarUrl || null,
           preferredLanguage: raw_user_meta_data?.language || 'es',
           isPremium: false,
         },

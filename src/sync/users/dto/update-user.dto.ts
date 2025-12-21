@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsEnum, IsUrl } from 'class-validator';
+import { IsOptional, IsString, IsEnum, IsBoolean } from 'class-validator';
 
 export class UpdateUserDto {
   @IsOptional()
@@ -6,10 +6,10 @@ export class UpdateUserDto {
   displayName?: string | null;
 
   @IsOptional()
-  @IsUrl()
-  avatarUrl?: string | null;
-
-  @IsOptional()
   @IsEnum(['es', 'en'], { message: "Language must be 'es' or 'en'" })
   preferredLanguage?: 'es' | 'en';
+
+  @IsOptional()
+  @IsBoolean()
+  allowDataCollection?: boolean | null;
 }

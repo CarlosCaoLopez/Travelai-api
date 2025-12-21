@@ -83,17 +83,34 @@ export class WebScraperService {
   }
 
   /**
-   * Prioritize URLs from trusted art sources
+   * Prioritize URLs from trusted art and cultural heritage sources
+   * Includes museums, monuments, architectural sites in ES, EN, FR, IT
    */
   prioritizeArtUrls(
     pages: Array<{ url: string; pageTitle?: string }>,
   ): string[] {
     const trustedDomains = [
+      // Encyclopedic sources
       'wikipedia.org',
+      'wikimedia.org',
       'wikiart.org',
+      'britannica.com',
+
+      // General art platforms
       'artsy.net',
-      'museum',
       'art',
+      'arte',
+      'artwork',
+      'gallery',
+      'galeria',
+      'galerie',
+      'galleria',
+
+      // Major museums
+      'museum',
+      'museo',
+      'musee',
+      'musée',
       'moma.org',
       'louvre.fr',
       'metmuseum.org',
@@ -104,6 +121,190 @@ export class WebScraperService {
       'rijksmuseum.nl',
       'hermitagemuseum.org',
       'uffizi.it',
+      'vam.ac.uk',
+      'nga.gov',
+
+      // Religious architecture - Cathedral / Catedral / Cathédrale / Cattedrale
+      'cathedral',
+      'catedral',
+      'cathédrale',
+      'cathérale',
+      'cattedrale',
+
+      // Church / Iglesia / Église / Chiesa
+      'church',
+      'iglesia',
+      'église',
+      'eglise',
+      'chiesa',
+
+      // Basilica
+      'basilica',
+      'basilique',
+
+      // Monastery / Monasterio / Monastère / Monastero
+      'monastery',
+      'monasterio',
+      'monastère',
+      'monastere',
+      'monastero',
+
+      // Abbey / Abadía / Abbaye / Abbazia
+      'abbey',
+      'abadia',
+      'abadía',
+      'abbaye',
+      'abbazia',
+
+      // Chapel / Capilla / Chapelle / Cappella
+      'chapel',
+      'capilla',
+      'chapelle',
+      'cappella',
+
+      // Temple / Templo / Temple / Tempio
+      'temple',
+      'templo',
+      'tempio',
+
+      // Mosque / Mezquita / Mosquée
+      'mosque',
+      'mezquita',
+      'mosquée',
+      'mosquee',
+      'moschea',
+
+      // Synagogue / Sinagoga
+      'synagogue',
+      'sinagoga',
+      'synagoga',
+
+      // Shrine / Santuario / Sanctuaire
+      'shrine',
+      'santuario',
+      'sanctuaire',
+      'santuario',
+
+      // Sanctuary / Santuario
+      'sanctuary',
+
+      // Palace / Palacio / Palais / Palazzo
+      'palace',
+      'palacio',
+      'palais',
+      'palazzo',
+
+      // Castle / Castillo / Château / Castello
+      'castle',
+      'castillo',
+      'château',
+      'chateau',
+      'castello',
+
+      // Fortress / Fortaleza / Forteresse / Fortezza
+      'fortress',
+      'fortaleza',
+      'forteresse',
+      'fortezza',
+
+      // Citadel / Ciudadela / Citadelle / Cittadella
+      'citadel',
+      'ciudadela',
+      'citadelle',
+      'cittadella',
+
+      // Tower / Torre / Tour / Torre
+      'tower',
+      'torre',
+      'tour',
+
+      // Bridge / Puente / Pont / Ponte
+      'bridge',
+      'puente',
+      'pont',
+      'ponte',
+
+      // Arch / Arco / Arc / Arco
+      'arch',
+      'arco',
+      'arc',
+
+      // Statue / Estatua / Statue / Statua
+      'statue',
+      'estatua',
+      'statua',
+
+      // Sculpture / Escultura / Sculpture / Scultura
+      'sculpture',
+      'escultura',
+      'scultura',
+
+      // Memorial / Memorial / Mémorial / Memoriale
+      'memorial',
+      'mémorial',
+      'memorial',
+      'memoriale',
+
+      // Landmark / Monumento emblemático / Monument
+      'landmark',
+      'emblematico',
+      'emblemático',
+
+      // Monument / Monumento
+      'monument',
+      'monumento',
+
+      // Heritage / Patrimonio / Patrimoine
+      'heritage',
+      'patrimonio',
+      'patrimoine',
+
+      // Historic / Histórico / Historique / Storico
+      'historic',
+      'historico',
+      'histórico',
+      'historique',
+      'storico',
+
+      // Architecture / Arquitectura / Architecture / Architettura
+      'architecture',
+      'arquitectura',
+      'architettura',
+      'architectural',
+      'arquitectonico',
+      'arquitectónico',
+
+      // Cultural & tourism sites
+      'unesco.org',
+      'turismo',
+      'tourism',
+      'tourisme',
+      'turistica',
+      'turística',
+      'culture',
+      'cultura',
+      'cultural',
+      'culturale',
+      'culturel',
+      'culturelle',
+      'visit',
+      'visita',
+      'visite',
+      'visitare',
+      'discover',
+      'descubrir',
+      'découvrir',
+      'decouvrir',
+      'scoprire',
+
+      // Regional/national heritage institutions
+      'cultura.gob',
+      'bic.es',
+      'monumentos',
+      'bienes-culturales',
+      'patrimoine.gouv.fr',
+      'beniculturali.it',
+      'mibact.gov.it',
     ];
 
     const prioritized = pages.sort((a, b) => {

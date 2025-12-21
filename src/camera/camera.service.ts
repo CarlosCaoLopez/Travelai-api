@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
 import { PrismaService } from '../database/prisma.service';
+import { StorageService } from '../storage/storage.service';
+import { UsersService } from '../sync/users/users.service';
 import { QwenVisionService } from './services/qwen-vision.service';
 import {
   GoogleVisionService,
@@ -12,6 +14,7 @@ import { PlaywrightScraperService } from './services/playwright-scraper.service'
 import { ArtworkMatchingService } from './services/artwork-matching.service';
 import { ImageProcessingService } from './services/image-processing.service';
 import { CategoryMappingService } from './services/category-mapping.service';
+import { GoogleLensService } from '../integrations/dataforseo/google-lens.service';
 import { RecognitionResponseDto } from './dto/recognition-response.dto';
 import { getMessage } from './constants/messages';
 
@@ -46,6 +49,9 @@ export class CameraService {
     private readonly matchingService: ArtworkMatchingService,
     private readonly imageProcessingService: ImageProcessingService,
     private readonly categoryMappingService: CategoryMappingService,
+    private readonly storageService: StorageService,
+    private readonly usersService: UsersService,
+    private readonly googleLensService: GoogleLensService,
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
   ) {
@@ -103,6 +109,7 @@ export class CameraService {
 
     // FALLBACK: If no matching pages found, try object detection + crop + retry
     let finalVisionResult = visionResult;
+    let croppedImageBuffer: Buffer | null = null; // Store cropped image for Google Lens fallback
 
     if (visionResult.pagesWithMatchingImages.length === 0) {
       this.logger.log(
@@ -133,6 +140,9 @@ export class CameraService {
               imageBuffer,
               objectResult.primaryObject.boundingPoly,
             );
+
+          // Store cropped image for potential Google Lens fallback
+          croppedImageBuffer = croppedBuffer;
 
           // Convert cropped image to base64
           const croppedBase64 =
@@ -174,9 +184,12 @@ export class CameraService {
     this.logger.log(
       `  - Pages with matching images: ${finalVisionResult.pagesWithMatchingImages.length}`,
     );
+
+    // TODO: TEMPORARY LOG - Remove after debugging
     this.logger.log(
-      `  - Visually similar images: ${finalVisionResult.visuallySimilarImages.length}`,
+      `  - Visually similar images: ${JSON.stringify(finalVisionResult.visuallySimilarImages)}`,
     );
+
     this.logger.log(
       `  - Web entities: ${finalVisionResult.webEntities.length}`,
     );
@@ -368,10 +381,134 @@ export class CameraService {
         this.logger.log(
           `❌ Qwen VL failed to identify with sufficient confidence (${qwenResult.confidence} < ${this.qwenVLMinConfidence})`,
         );
+
+        // 6. DataForSEO Google Lens Fallback (Qwen VL confidence < 0.98)
+        this.logger.log(
+          '🔍 Step 5: DataForSEO Google Lens Fallback (Qwen VL confidence < 0.98)',
+        );
+
+        const minLength = parseInt(
+          this.configService.get('MIN_SCRAPED_TEXT_LENGTH', '100'),
+          10,
+        );
+        let tempUpload: { publicUrl: string; path: string } | null = null;
+
+        try {
+          // Use cropped image if available, otherwise use original
+          const imageToUpload = croppedImageBuffer || imageBuffer;
+          const imageType = croppedImageBuffer ? 'cropped' : 'original';
+
+          this.logger.log(`📤 Uploading ${imageType} image to temp bucket...`);
+
+          // Upload image to temp bucket
+          tempUpload = await this.storageService.uploadToTempBucket(
+            imageToUpload,
+            `${userId}-${Date.now()}.jpg`,
+          );
+          this.logger.log(
+            `📤 ${imageType} image uploaded to temp bucket: ${tempUpload.publicUrl}`,
+          );
+
+          // Call DataForSEO Google Lens
+          const lensResult = await this.googleLensService.reverseImageSearch(
+            tempUpload.publicUrl,
+          );
+
+          if (lensResult.success && lensResult.urls.length > 0) {
+            this.logger.log(
+              `🔎 Google Lens found ${lensResult.urls.length} URLs (cost: $${lensResult.cost || 0})`,
+            );
+
+            // Convert URLs to format expected by prioritizeArtUrls
+            const urlsWithPages = lensResult.urls.map((url) => ({ url }));
+            const prioritizedUrls =
+              this.webScraperService.prioritizeArtUrls(urlsWithPages);
+
+            // Scrape URLs found by Google Lens
+            const htmlResults = await this.webScraperService.fetchMultipleUrls(
+              prioritizedUrls.slice(0, 5),
+            );
+
+            // Extract and combine text from scraped content
+            const scrapedTexts = htmlResults
+              .filter((result) => result.html)
+              .map((result) =>
+                this.webScraperService.extractCleanText(result.html || ''),
+              );
+            const scrapedContent = scrapedTexts.join('\n\n');
+
+            // Analyze with Qwen Flash using the new content
+            if (scrapedContent && scrapedContent.length >= minLength) {
+              this.logger.log(
+                `📄 Scraped ${scrapedContent.length} chars from Lens URLs, analyzing with Qwen Flash...`,
+              );
+
+              const lensArtworkData =
+                await this.analyzeWebContentForArtworkEnhanced(
+                  scrapedContent,
+                  prioritizedUrls,
+                  [], // No best guess labels from Lens
+                  [], // No web entities from Lens
+                  language,
+                );
+
+              if (
+                lensArtworkData &&
+                lensArtworkData.identified &&
+                lensArtworkData.confidence >= this.minConfidence
+              ) {
+                artworkData = lensArtworkData;
+                identified = true;
+                this.logger.log(
+                  `✅ Identified via Google Lens + Qwen Flash: "${artworkData?.title}", confidence: ${artworkData?.confidence}`,
+                );
+              } else {
+                this.logger.log(
+                  `❌ Google Lens fallback failed: confidence ${lensArtworkData?.confidence || 0} < ${this.minConfidence}`,
+                );
+              }
+            } else {
+              this.logger.log(
+                `⚠️ Insufficient content from Lens URLs (${scrapedContent?.length || 0} chars)`,
+              );
+            }
+          } else {
+            this.logger.log(
+              `⚠️ Google Lens returned no URLs or failed: ${lensResult.error || 'unknown error'}`,
+            );
+          }
+        } catch (lensError: unknown) {
+          const errorMessage =
+            lensError instanceof Error ? lensError.message : 'Unknown error';
+          this.logger.error(`❌ Google Lens fallback error: ${errorMessage}`);
+        } finally {
+          // Always clean up temporary image
+          if (tempUpload) {
+            try {
+              await this.storageService.deleteFromTempBucket(tempUpload.path);
+              this.logger.log('🗑️ Temporary image deleted from bucket');
+            } catch (deleteError: unknown) {
+              const delErrorMsg =
+                deleteError instanceof Error
+                  ? deleteError.message
+                  : 'Unknown error';
+              this.logger.error(`Failed to delete temp file: ${delErrorMsg}`);
+            }
+          }
+        }
       }
     }
 
-    // 4. DECISION POINT: Only proceed if identified
+    // 4. Upload photo anonymously to Supabase if user has granted permission
+    // Upload happens for ALL photos (identified or not)
+    await this.uploadPhotoAnonymously(
+      userId,
+      imageBuffer,
+      _mimeType,
+      artworkData,
+    );
+
+    // 5. DECISION POINT: Only proceed if identified
     if (!identified || !artworkData) {
       return {
         success: true,
@@ -382,14 +519,14 @@ export class CameraService {
       };
     }
 
-    // 5. Match against database
+    // 6. Match against database
     const matchedArtwork = await this.matchingService.findMatchingArtwork(
       artworkData.title || '',
       artworkData.artist || '',
       language,
     );
 
-    // 6. Save to user collection with localUri (no upload to storage)
+    // 7. Save to user collection with localUri (no upload to storage)
     const collectionItem = await this.saveToCollection(
       userId,
       localUri,
@@ -397,7 +534,7 @@ export class CameraService {
       artworkData,
     );
 
-    // 7. Build success response
+    // 8. Build success response
     return this.buildSuccessResponse(
       collectionItem,
       artworkData,
@@ -632,7 +769,13 @@ IMPORTANTE:
 - El campo "country" es OPCIONAL:
   * Inclúyelo SOLO si "isMonument" es true
   * Debe ser el nombre del país donde está ubicado el monumento
-  * Si "isMonument" es false, omite este campo o déjalo como null`,
+  * Si "isMonument" es false, omite este campo o déjalo como null
+
+CRÍTICO: TODOS los valores de texto en el JSON deben estar EXCLUSIVAMENTE EN ESPAÑOL. No uses ningún texto en inglés, francés u otro idioma. Ejemplos:
+- INCORRECTO: "title": "The Last Judgment"
+- CORRECTO: "title": "El Juicio Final"
+- INCORRECTO: "description": "This painting depicts..."
+- CORRECTO: "description": "Esta pintura representa..."`,
 
       en: `You are an expert art historian with extensive knowledge of world artworks. Your specialty is to identify and provide accurate, verifiable, and concise information about paintings, sculptures, architecture, and monuments.
 
@@ -687,7 +830,13 @@ IMPORTANT:
 - The "country" field is OPTIONAL:
   * Include it ONLY if "isMonument" is true
   * Must be the name of the country where the monument is located
-  * If "isMonument" is false, omit this field or leave it as null`,
+  * If "isMonument" is false, omit this field or leave it as null
+
+CRITICAL: ALL text values in the JSON must be EXCLUSIVELY IN ENGLISH. Do not use any Spanish, French, or other language text. Examples:
+- INCORRECT: "title": "El Juicio Final"
+- CORRECT: "title": "The Last Judgment"
+- INCORRECT: "description": "Esta pintura representa..."
+- CORRECT: "description": "This painting depicts..."`,
 
       fr: `Vous êtes un historien d'art expert avec une connaissance approfondie des œuvres d'art mondiales. Votre spécialité est d'identifier et de fournir des informations précises, vérifiables et concises sur les peintures, sculptures, architecture et monuments.
 
@@ -742,7 +891,13 @@ IMPORTANT :
 - Le champ "country" est OPTIONNEL :
   * Incluez-le SEULEMENT si "isMonument" est true
   * Doit être le nom du pays où le monument est situé
-  * Si "isMonument" est false, omettez ce champ ou laissez-le comme null`,
+  * Si "isMonument" est false, omettez ce champ ou laissez-le comme null
+
+CRITIQUE: TOUTES les valeurs de texte dans le JSON doivent être EXCLUSIVEMENT EN FRANÇAIS. N'utilisez aucun texte en anglais, espagnol ou autre langue. Exemples:
+- INCORRECT: "title": "The Last Judgment"
+- CORRECT: "title": "Le Jugement dernier"
+- INCORRECT: "description": "This painting depicts..."
+- CORRECT: "description": "Cette peinture représente..."`,
     };
 
     return prompts[language] || prompts.es;
@@ -776,6 +931,46 @@ IMPORTANT :
         `Failed to parse web analysis response: ${error.message}`,
       );
       return null;
+    }
+  }
+
+  /**
+   * Upload photo anonymously to Supabase Storage if user has granted permission
+   * Uploads ALL photos (identified or not) with anonymous filenames
+   */
+  private async uploadPhotoAnonymously(
+    userId: string,
+    imageBuffer: Buffer,
+    mimeType: string,
+    artworkData: ArtworkData | null,
+  ): Promise<void> {
+    try {
+      // Check if user has granted permission for data collection
+      const user = await this.usersService.getUserProfile(userId);
+
+      if (user.allowDataCollection !== true) {
+        this.logger.log(
+          `User ${userId} has not granted data collection permission. Skipping upload.`,
+        );
+        return;
+      }
+
+      // Extract title and author (use 'not_found' if not identified)
+      const title = artworkData?.title || null;
+      const author = artworkData?.artist || null;
+
+      // Upload to Supabase bucket "artworks"
+      const result = await this.storageService.uploadArtworkPhotoAnonymous(
+        title,
+        author,
+        imageBuffer,
+        mimeType,
+      );
+
+      this.logger.log(`✅ Anonymous photo uploaded: ${result.filename}`);
+    } catch (error) {
+      // Non-blocking: If upload fails, don't fail the recognition
+      this.logger.error('Failed to upload photo anonymously:', error);
     }
   }
 

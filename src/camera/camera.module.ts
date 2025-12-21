@@ -2,6 +2,9 @@ import { Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
 import { DatabaseModule } from '../database/database.module';
 import { AuthModule } from '../auth/auth.module';
+import { StorageModule } from '../storage/storage.module';
+import { SyncModule } from '../sync/sync.module';
+import { DataForSEOModule } from '../integrations/dataforseo/dataforseo.module';
 import { CameraController } from './camera.controller';
 import { CameraService } from './camera.service';
 import { QwenVisionService } from './services/qwen-vision.service';
@@ -11,6 +14,7 @@ import { ArtworkMatchingService } from './services/artwork-matching.service';
 import { ImageProcessingService } from './services/image-processing.service';
 import { CategoryMappingService } from './services/category-mapping.service';
 import { PlaywrightScraperService } from './services/playwright-scraper.service';
+import { ArtworkDetailsService } from './services/artwork-details.service';
 
 @Module({
   imports: [
@@ -20,6 +24,9 @@ import { PlaywrightScraperService } from './services/playwright-scraper.service'
     }),
     DatabaseModule,
     AuthModule,
+    StorageModule,
+    SyncModule,
+    DataForSEOModule,
   ],
   controllers: [CameraController],
   providers: [
@@ -31,6 +38,7 @@ import { PlaywrightScraperService } from './services/playwright-scraper.service'
     ArtworkMatchingService,
     ImageProcessingService,
     CategoryMappingService,
+    ArtworkDetailsService,
   ],
   exports: [CameraService],
 })

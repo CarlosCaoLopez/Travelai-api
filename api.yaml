@@ -355,9 +355,9 @@ components:
       required:
         - id
         - email
-        - preferred_language
-        - is_premium
-        - created_at
+        - preferredLanguage
+        - isPremium
+        - createdAt
       properties:
         id:
           $ref: '#/components/schemas/UUID'
@@ -366,27 +366,26 @@ components:
           type: string
           format: email
           example: 'user@example.com'
-        display_name:
+        displayName:
           type: string
           example: 'John Doe'
           nullable: true
           description: 'Nombre visible del usuario'
-        avatar_url:
-          type: string
-          format: uri
-          example: 'https://example.com/avatar.jpg'
-          nullable: true
-          description: 'URL de la foto de perfil'
-        preferred_language:
+        preferredLanguage:
           type: string
           enum: [es, en]
           example: 'es'
           description: 'Idioma preferido del usuario (detectado automáticamente al registrarse)'
-        is_premium:
+        isPremium:
           type: boolean
           example: false
           description: 'Indica si el usuario tiene suscripción premium activa'
-        created_at:
+        allowDataCollection:
+          type: boolean
+          nullable: true
+          example: true
+          description: 'Permiso para guardar fotos del usuario para mejorar la IA de reconocimiento (null = no se ha preguntado, true = permitido, false = rechazado)'
+        createdAt:
           type: string
           format: date-time
           example: '2025-12-01T20:00:00Z'
@@ -396,20 +395,20 @@ components:
       type: object
       description: 'Datos para actualizar el perfil del usuario'
       properties:
-        display_name:
+        displayName:
           type: string
           example: 'Jane Smith'
           nullable: true
-        avatar_url:
-          type: string
-          format: uri
-          example: 'https://example.com/new-avatar.jpg'
-          nullable: true
-        preferred_language:
+        preferredLanguage:
           type: string
           enum: [es, en]
           example: 'en'
           description: 'Cambiar idioma preferido del usuario'
+        allowDataCollection:
+          type: boolean
+          nullable: true
+          example: true
+          description: 'Permiso para guardar fotos para mejorar la IA de reconocimiento'
 
     # --- Webhooks ---
     SupabaseWebhookPayload:
@@ -452,11 +451,6 @@ components:
                   type: string
                   example: 'John Doe'
                   nullable: true
-                avatarUrl:
-                  type: string
-                  format: uri
-                  example: 'https://example.com/avatar.jpg'
-                  nullable: true
                 language:
                   type: string
                   enum: [es, en]
@@ -487,6 +481,172 @@ components:
           example: 'User created successfully'
         userId:
           $ref: '#/components/schemas/UUID'
+
+    # --- Payments/Subscriptions ---
+    CreatePaymentIntentRequest:
+      type: object
+      description: 'Request body para crear Payment Intent de Travel Pass'
+      required:
+        - planId
+      properties:
+        planId:
+          type: string
+          enum: [travel_pass]
+          description: 'Identificador del plan - solo se acepta travel_pass para payment intents'
+          example: 'travel_pass'
+        currency:
+          type: string
+          default: 'eur'
+          description: 'Código de moneda (ISO 4217)'
+          example: 'eur'
+
+    PaymentSheetResponse:
+      type: object
+      description: 'Credenciales para inicializar Stripe Payment Sheet en el cliente'
+      required:
+        - paymentIntent
+        - ephemeralKey
+        - customer
+        - publishableKey
+      properties:
+        paymentIntent:
+          type: string
+          description: 'Payment Intent client_secret (comienza con pi_)'
+          example: 'pi_3QLxyz123_secret_xyz789abc'
+        ephemeralKey:
+          type: string
+          description: 'Ephemeral Key secret para autenticación del Stripe SDK'
+          example: 'ek_test_YWJjZGVm'
+        customer:
+          type: string
+          description: 'Stripe Customer ID (comienza con cus_)'
+          example: 'cus_QtPxyz123ABC'
+        publishableKey:
+          type: string
+          description: 'Stripe publishable key para inicializar el SDK'
+          example: 'pk_test_51xyz...'
+
+    CreateSetupIntentRequest:
+      type: object
+      description: 'Request body para crear SetupIntent de suscripción (Paso 1/2)'
+      required:
+        - planId
+      properties:
+        planId:
+          type: string
+          enum: [monthly, annual]
+          description: 'Identificador del plan de suscripción'
+          example: 'monthly'
+
+    SetupIntentResponse:
+      type: object
+      description: 'Credenciales para inicializar Stripe SetupIntent Sheet en el cliente'
+      required:
+        - setupIntent
+        - ephemeralKey
+        - customer
+        - publishableKey
+      properties:
+        setupIntent:
+          type: string
+          description: 'SetupIntent client_secret (comienza con seti_)'
+          example: 'seti_1QLxyz123_secret_abc789xyz'
+        ephemeralKey:
+          type: string
+          description: 'Ephemeral Key secret para autenticación del Stripe SDK'
+          example: 'ek_test_YWJjZGVm'
+        customer:
+          type: string
+          description: 'Stripe Customer ID (comienza con cus_)'
+          example: 'cus_QtPxyz123ABC'
+        publishableKey:
+          type: string
+          description: 'Stripe publishable key para inicializar el SDK'
+          example: 'pk_test_51xyz...'
+
+    CreateSubscriptionRequest:
+      type: object
+      description: 'Request body para crear suscripción con método de pago guardado (Paso 2/2)'
+      required:
+        - planId
+      properties:
+        planId:
+          type: string
+          enum: [monthly, annual]
+          description: 'Identificador del plan de suscripción'
+          example: 'monthly'
+        setupIntentId:
+          type: string
+          pattern: '^seti_[a-zA-Z0-9_]+$'
+          description: 'Opcional: SetupIntent ID para extraer método de pago (comienza con seti_)'
+          example: 'seti_1QLxyz123abc'
+
+    SubscriptionCreatedResponse:
+      type: object
+      description: 'Respuesta al crear una suscripción exitosamente'
+      required:
+        - subscriptionId
+        - status
+        - currentPeriodEnd
+      properties:
+        subscriptionId:
+          type: string
+          description: 'Stripe Subscription ID (comienza con sub_)'
+          example: 'sub_1QLxyzABC123'
+        status:
+          type: string
+          description: 'Estado actual de la suscripción'
+          example: 'active'
+        currentPeriodEnd:
+          type: string
+          format: date-time
+          description: 'Fecha ISO 8601 cuando termina el período de facturación actual'
+          example: '2026-01-15T14:30:00.000Z'
+
+    SubscriptionStatusResponse:
+      type: object
+      description: 'Estado actual de la suscripción o compra del usuario'
+      required:
+        - plan
+        - status
+        - isSubscribed
+      properties:
+        plan:
+          type: string
+          enum: [monthly, annual]
+          nullable: true
+          description: 'Tipo de plan de suscripción (null para travel_pass o sin suscripción)'
+          example: 'monthly'
+        status:
+          type: string
+          enum: [active, expired, canceled, past_due, none]
+          description: 'Estado actual de la suscripción o compra'
+          example: 'active'
+        expiryDate:
+          type: string
+          format: date-time
+          nullable: true
+          description: 'Fecha ISO 8601 cuando expira la suscripción o compra'
+          example: '2026-01-15T14:30:00.000Z'
+        isSubscribed:
+          type: boolean
+          description: 'True si el usuario tiene acceso premium activo actualmente'
+          example: true
+
+    StripeWebhookEvent:
+      type: object
+      description: 'Payload de evento webhook de Stripe'
+      required:
+        - type
+        - data
+      properties:
+        type:
+          type: string
+          description: 'Tipo de evento de Stripe'
+          example: 'payment_intent.succeeded'
+        data:
+          type: object
+          description: 'Datos del evento conteniendo el objeto de Stripe'
 
 paths:
   # ----------------------------
@@ -662,6 +822,153 @@ paths:
                 success: false
                 error: 'internal_server_error'
                 message: 'An unexpected error occurred while processing the image. Please try again.'
+
+  /api/camera/artwork/details:
+    post:
+      tags:
+        - Camera Recognition
+      summary: Obtener información detallada de una obra identificada
+      description: |
+        Recibe información básica de una obra (título, autor, descripción) y retorna
+        información enriquecida adicional como contexto histórico, técnica, ubicación,
+        obras relacionadas, y datos curiosos.
+
+        **Uso típico:**
+        - Usuario ve la información inicial de una obra identificada
+        - Usuario solicita "más información" sobre la obra
+        - Frontend envía los datos básicos disponibles
+        - Backend enriquece con contexto adicional mediante IA y bases de datos
+
+        **Limitaciones:**
+        - Rate limiting aplicado según tier de suscripción
+        - Requiere al menos título o autor para funcionar
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: language
+          schema:
+            type: string
+            pattern: '^[a-z]{2}$'
+            default: 'es'
+          description: Código ISO 639-1 del idioma (es, en, fr) para los resultados enriquecidos
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+              properties:
+                title:
+                  type: string
+                  description: Título de la obra
+                  example: 'Las Meninas'
+                artist:
+                  type: string
+                  description: Nombre del artista/creador
+                  example: 'Diego Velázquez'
+                description:
+                  type: string
+                  description: Descripción inicial de la obra
+                  example: 'One of the masterpieces of the Spanish Golden Age...'
+                year:
+                  type: string
+                  description: Año de creación (opcional)
+                  example: '1656'
+                artworkId:
+                  type: string
+                  description: ID de la obra en la base de datos (si ya fue identificada previamente)
+                  example: '550e8400-e29b-41d4-a716-446655440000'
+      responses:
+        '200':
+          description: Información detallada obtenida exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  detailedInfo:
+                    type: object
+                    properties:
+                      historicalContext:
+                        type: string
+                        description: Contexto histórico y cultural de la época
+                        example: 'Created during the reign of Philip IV of Spain, during the Spanish Golden Age...'
+                      visualDescription:
+                        type: string
+                        description: Descripción visual detallada de la obra (composición, colores, elementos, figuras)
+                        example: 'The painting depicts a large room in the Royal Alcazar of Madrid. In the center, the Infanta Margarita Teresa is surrounded by her ladies-in-waiting...'
+                      symbolism:
+                        type: string
+                        description: Simbolismo e interpretación de la obra
+                        example: 'The mirror in the background reflects the royal couple, suggesting multiple perspectives...'
+                      interestingFacts:
+                        type: array
+                        items:
+                          type: string
+                        example:
+                          - 'Picasso created 58 interpretations of Las Meninas in 1957'
+                          - 'The painting includes a self-portrait of Velázquez himself'
+                          - 'It was originally titled "The Family of Philip IV"'
+                      artistBio:
+                        type: string
+                        description: Breve biografía del artista
+                        example: 'Diego Rodríguez de Silva y Velázquez (1599-1660) was a Spanish painter...'
+        '400':
+          description: Solicitud inválida - faltan campos requeridos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: 'missing_required_field'
+                message: 'Title is required to fetch artwork details'
+        '401':
+          description: No autenticado - token JWT inválido o faltante
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: 'unauthorized'
+                message: 'Valid authentication token required'
+        '404':
+          description: Obra no encontrada en la base de datos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: 'artwork_not_found'
+                message: 'Could not find detailed information for the specified artwork'
+        '429':
+          description: Demasiadas solicitudes - rate limit excedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: 'rate_limit_exceeded'
+                message: 'Detail request limit reached. Please try again later.'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: 'internal_server_error'
+                message: 'An unexpected error occurred while fetching artwork details'
 
   # ----------------------------
   # EXPLORE SCREEN
@@ -856,6 +1163,75 @@ paths:
                         type: boolean
                   query:
                     type: string
+
+  /api/artworks/daily-recommendation:
+    get:
+      tags:
+        - Artworks Catalog
+      summary: Obtener recomendación diaria de obra de arte
+      description: |
+        Retorna una obra de arte seleccionada aleatoriamente como recomendación del día.
+
+        **Características:**
+        - La recomendación se genera automáticamente y es la misma para todos los usuarios durante el día
+        - Se renueva automáticamente cada día
+        - Requiere autenticación JWT
+        - Soporta múltiples idiomas para las traducciones
+
+        **Cache:**
+        - La recomendación se cachea en memoria para optimizar rendimiento
+        - Cache válido hasta que cambie la fecha (UTC)
+        - Si el servidor se reinicia, se genera una nueva recomendación automáticamente
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: language
+          schema:
+            type: string
+            default: 'es'
+          description: Código ISO 639-1 del idioma (es, en, fr) para obtener las traducciones
+      responses:
+        '200':
+          description: Recomendación diaria obtenida exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  artwork:
+                    $ref: '#/components/schemas/Artwork'
+              example:
+                artwork:
+                  id: '550e8400-e29b-41d4-a716-446655440000'
+                  title: 'La noche estrellada'
+                  author: 'Vincent van Gogh'
+                  year: '1889'
+                  country: 'Francia'
+                  period: 'Postimpresionismo'
+                  technique: 'Óleo sobre lienzo'
+                  dimensions: '73.7 cm × 92.1 cm'
+                  imageUrl: 'https://example.com/starry-night.jpg'
+                  description: 'Una de las pinturas más famosas del arte moderno...'
+                  category:
+                    id: 'pintura'
+                    name: 'Pintura'
+                    icon: '🎨'
+                  createdAt: '2025-01-01T00:00:00Z'
+                  updatedAt: '2025-01-01T00:00:00Z'
+        '401':
+          description: No autenticado - JWT inválido o no proporcionado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 401
+                  message:
+                    type: string
+                    example: 'Unauthorized'
 
   # ----------------------------
   # USER COLLECTION
@@ -1083,11 +1459,11 @@ paths:
               example:
                 id: '550e8400-e29b-41d4-a716-446655440000'
                 email: 'user@example.com'
-                display_name: 'John Doe'
-                avatar_url: 'https://example.com/avatar.jpg'
-                preferred_language: 'es'
-                is_premium: false
-                created_at: '2025-12-01T20:00:00Z'
+                displayName: 'John Doe'
+                preferredLanguage: 'es'
+                isPremium: false
+                allowDataCollection: null
+                createdAt: '2025-12-01T20:00:00Z'
         '401':
           description: No autenticado
           content:
@@ -1107,9 +1483,9 @@ paths:
         Actualiza la información del perfil del usuario actual.
 
         **Campos actualizables:**
-        - `display_name`: Nombre visible del usuario
-        - `avatar_url`: URL de la foto de perfil
-        - `preferred_language`: Idioma preferido (es/en)
+        - `displayName`: Nombre visible del usuario
+        - `preferredLanguage`: Idioma preferido (es/en)
+        - `allowDataCollection`: Permiso para guardar fotos para mejora de IA (true/false/null)
 
         **Notas:**
         - Solo se actualizan los campos proporcionados (PATCH parcial)
@@ -1127,18 +1503,17 @@ paths:
               update_language:
                 summary: Cambiar idioma preferido
                 value:
-                  preferred_language: 'en'
+                  preferredLanguage: 'en'
               update_profile:
-                summary: Actualizar nombre y avatar
+                summary: Actualizar nombre
                 value:
-                  display_name: 'Jane Smith'
-                  avatar_url: 'https://example.com/new-avatar.jpg'
+                  displayName: 'Jane Smith'
               update_all:
                 summary: Actualizar todos los campos
                 value:
-                  display_name: 'Jane Smith'
-                  avatar_url: 'https://example.com/new-avatar.jpg'
-                  preferred_language: 'en'
+                  displayName: 'Jane Smith'
+                  preferredLanguage: 'en'
+                  allowDataCollection: true
       responses:
         '200':
           description: Perfil actualizado exitosamente
@@ -1149,11 +1524,11 @@ paths:
               example:
                 id: '550e8400-e29b-41d4-a716-446655440000'
                 email: 'user@example.com'
-                display_name: 'Jane Smith'
-                avatar_url: 'https://example.com/new-avatar.jpg'
-                preferred_language: 'en'
-                is_premium: false
-                created_at: '2025-12-01T20:00:00Z'
+                displayName: 'Jane Smith'
+                preferredLanguage: 'en'
+                isPremium: false
+                allowDataCollection: true
+                createdAt: '2025-12-01T20:00:00Z'
         '400':
           description: Datos inválidos
           content:
@@ -1163,7 +1538,7 @@ paths:
               example:
                 success: false
                 error: 'Validation Error'
-                message: "preferred_language must be 'es' or 'en'"
+                message: "preferredLanguage must be 'es' or 'en'"
         '401':
           description: No autenticado
           content:
@@ -1174,6 +1549,223 @@ paths:
                 success: false
                 error: 'Unauthorized'
                 message: 'No authentication token provided'
+
+  /api/sync/users/me/push-token:
+    post:
+      tags:
+        - Users
+        - Notifications
+      summary: Registrar token de notificaciones push
+      description: |
+        Registra o actualiza el Expo Push Token del dispositivo actual.
+
+        **Uso en la app:**
+        - Se llama automáticamente al autenticarse el usuario
+        - Se actualiza si el token cambia
+        - Un usuario puede tener múltiples tokens (múltiples dispositivos)
+
+        **Backend debe:**
+        - Almacenar el token asociado al usuario
+        - Actualizar si ya existe un token para el mismo deviceId
+        - Mantener múltiples tokens por usuario (para multi-dispositivo)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - deviceId
+                - platform
+              properties:
+                token:
+                  type: string
+                  example: 'ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]'
+                  description: 'Expo Push Token obtenido del cliente'
+                deviceId:
+                  type: string
+                  example: 'abc123-device-id'
+                  description: 'ID único del dispositivo'
+                platform:
+                  type: string
+                  enum: [ios, android]
+                  example: 'ios'
+                  description: 'Plataforma del dispositivo'
+                timestamp:
+                  type: integer
+                  example: 1702987200000
+                  description: 'Timestamp de registro en milisegundos'
+      responses:
+        '200':
+          description: Token registrado exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  tokenId:
+                    type: string
+                    example: 'token-uuid-123'
+                    description: 'ID del token registrado en la base de datos'
+        '400':
+          description: Token inválido o datos incorrectos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: 'BadRequest'
+                message: 'Invalid push token format'
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - Users
+        - Notifications
+      summary: Eliminar token de notificaciones push
+      description: |
+        Elimina el token del dispositivo actual.
+
+        **Uso en la app:**
+        - Se llama al hacer logout
+        - Se llama si el usuario desinstala la app (opcional)
+
+        **Backend debe:**
+        - Eliminar el token asociado al deviceId del usuario
+        - Dejar de enviar notificaciones a ese token
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: deviceId
+          required: true
+          schema:
+            type: string
+          description: 'ID del dispositivo cuyo token se eliminará'
+          example: 'abc123-device-id'
+      responses:
+        '200':
+          description: Token eliminado exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Token no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/sync/users/me/notification-preferences:
+    get:
+      tags:
+        - Users
+        - Notifications
+      summary: Obtener preferencias de notificaciones
+      description: |
+        Retorna las preferencias de notificaciones del usuario.
+
+        **Preferencias disponibles:**
+        - `dailyArtEnabled`: Si el usuario quiere recibir notificación diaria de arte
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Preferencias de notificaciones
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dailyArtEnabled:
+                    type: boolean
+                    example: true
+                    description: 'Si el usuario quiere recibir notificación diaria a las 20:00'
+              example:
+                dailyArtEnabled: true
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    patch:
+      tags:
+        - Users
+        - Notifications
+      summary: Actualizar preferencias de notificaciones
+      description: |
+        Actualiza las preferencias de notificaciones del usuario.
+
+        **Uso en la app:**
+        - Se llama cuando el usuario cambia el toggle en Settings
+        - El backend debe actualizar las preferencias en la base de datos
+        - El cron job de notificaciones debe respetar estas preferencias
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                dailyArtEnabled:
+                  type: boolean
+                  example: true
+                  description: 'Si el usuario quiere recibir notificación diaria'
+            example:
+              dailyArtEnabled: true
+      responses:
+        '200':
+          description: Preferencias actualizadas exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+              example:
+                success: true
+        '400':
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/sync/categories:
     get:
       tags:
@@ -1672,3 +2264,801 @@ paths:
                 success: false
                 error: 'internal_server_error'
                 message: 'Failed to create user in database'
+
+  # ----------------------------
+  # PAYMENTS & SUBSCRIPTIONS
+  # ----------------------------
+
+  /api/payments/create-intent:
+    post:
+      tags:
+        - Payments
+      summary: Crear Payment Intent para Travel Pass
+      description: |
+        Crea un Stripe Payment Intent para la compra única del Travel Pass.
+
+        **Detalles del Travel Pass:**
+        - Precio: €4.99 (pago único)
+        - Duración: 7 días de acceso premium
+        - Sin renovación automática
+
+        **Flujo de Pago:**
+        1. Cliente llama a este endpoint para crear Payment Intent
+        2. Backend retorna credenciales para Stripe Payment Sheet
+        3. Cliente inicializa Stripe SDK con credenciales retornadas
+        4. Usuario completa el pago en Stripe Payment Sheet
+        5. Webhook procesa la confirmación del pago
+        6. Usuario obtiene 7 días de acceso premium
+
+        **Reglas de Negocio:**
+        - Usuario no puede tener suscripción o travel pass activo existente
+        - Bloquea compras duplicadas mientras el usuario tiene premium activo
+        - Crea o recupera cliente de Stripe automáticamente
+        - Confirmación de pago manejada vía webhook (payment_intent.succeeded)
+
+        **Rate Limiting:**
+        - Se aplican límites estándar de la API
+        - Considerar implementar rate limiting adicional para endpoints de pago
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePaymentIntentRequest'
+            examples:
+              travel_pass:
+                summary: Crear payment intent de Travel Pass
+                value:
+                  planId: 'travel_pass'
+                  currency: 'eur'
+      responses:
+        '200':
+          description: Payment Intent creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentSheetResponse'
+              example:
+                paymentIntent: 'pi_3QLxyz123_secret_xyz789abc'
+                ephemeralKey: 'ek_test_YWJjZGVm'
+                customer: 'cus_QtPxyz123ABC'
+                publishableKey: 'pk_test_51xyz...'
+        '400':
+          description: Usuario ya tiene premium activo o solicitud inválida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                already_premium:
+                  summary: Usuario ya tiene suscripción o travel pass activo
+                  value:
+                    success: false
+                    error: 'bad_request'
+                    message: 'Ya tienes una suscripción o pase activo. Solo puedes tener una suscripción activa a la vez.'
+                invalid_plan:
+                  summary: PlanId inválido proporcionado
+                  value:
+                    success: false
+                    error: 'validation_error'
+                    message: 'planId must be travel_pass for payment intents'
+        '401':
+          description: No autenticado - token JWT faltante o inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: 'unauthorized'
+                message: 'Valid authentication token required'
+        '500':
+          description: Error interno del servidor - fallo en API de Stripe o base de datos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: 'internal_server_error'
+                message: 'Failed to create payment intent'
+
+  /api/payments/setup-intent:
+    post:
+      tags:
+        - Payments
+      summary: Crear SetupIntent para Suscripción (Paso 1 de 2)
+      description: |
+        Crea un Stripe SetupIntent para recolectar método de pago sin cobrar al usuario.
+        Este es el **Paso 1** del flujo de suscripción en 2 pasos.
+
+        **Precios de Suscripción:**
+        - Plan Mensual: €8.99/mes (recurrente)
+        - Plan Anual: €59.99/año (recurrente)
+
+        **Flujo de Suscripción en 2 Pasos:**
+
+        **Paso 1 (este endpoint)**: Recolectar método de pago
+        1. Cliente llama a este endpoint con el plan deseado
+        2. Backend crea SetupIntent (sin cobro)
+        3. Cliente inicializa Stripe SetupIntent Sheet
+        4. Usuario ingresa detalles de la tarjeta
+        5. Stripe guarda el método de pago
+        6. Cliente recibe setupIntentId
+
+        **Paso 2**: Crear suscripción con método de pago guardado
+        - Cliente llama a `/api/payments/create-subscription-with-payment-method`
+        - Backend crea suscripción con cobro inmediato
+        - Usuario obtiene acceso premium
+
+        **Reglas de Negocio:**
+        - Usuario no puede tener suscripción o travel pass activo existente
+        - SetupIntent solo guarda método de pago - NO cobra
+        - Método de pago puede usarse después para crear suscripción
+        - SetupIntent tiene usage='off_session' para cobros recurrentes
+
+        **Por qué Flujo en 2 Pasos:**
+        - Cumple con requisitos de Strong Customer Authentication (SCA)
+        - Permite al usuario revisar detalles de suscripción antes del cobro
+        - Proporciona mejor manejo de errores para validación de método de pago
+        - Habilita creación fluida de suscripción después de confirmación
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSetupIntentRequest'
+            examples:
+              monthly_plan:
+                summary: Configurar método de pago para suscripción mensual
+                value:
+                  planId: 'monthly'
+              annual_plan:
+                summary: Configurar método de pago para suscripción anual
+                value:
+                  planId: 'annual'
+      responses:
+        '200':
+          description: SetupIntent creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetupIntentResponse'
+              example:
+                setupIntent: 'seti_1QLxyz123_secret_abc789xyz'
+                ephemeralKey: 'ek_test_YWJjZGVm'
+                customer: 'cus_QtPxyz123ABC'
+                publishableKey: 'pk_test_51xyz...'
+        '400':
+          description: Usuario ya tiene premium activo o solicitud inválida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                already_premium:
+                  summary: Usuario ya tiene suscripción o travel pass activo
+                  value:
+                    success: false
+                    error: 'bad_request'
+                    message: 'Ya tienes una suscripción o pase activo. Solo puedes tener una suscripción activa a la vez.'
+                invalid_plan:
+                  summary: PlanId inválido proporcionado
+                  value:
+                    success: false
+                    error: 'validation_error'
+                    message: "planId must be 'monthly' or 'annual'"
+        '401':
+          description: No autenticado - token JWT faltante o inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: 'unauthorized'
+                message: 'Valid authentication token required'
+        '500':
+          description: Error interno del servidor - fallo en API de Stripe o base de datos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: 'internal_server_error'
+                message: 'Failed to create setup intent'
+
+  /api/payments/create-subscription-with-payment-method:
+    post:
+      tags:
+        - Payments
+      summary: Crear Suscripción con Método de Pago (Paso 2 de 2)
+      description: |
+        Crea una Suscripción de Stripe usando un método de pago guardado.
+        Este es el **Paso 2** del flujo de suscripción en 2 pasos.
+
+        **Prerequisitos:**
+        - Usuario debe haber completado Paso 1 (POST /api/payments/setup-intent)
+        - SetupIntent debe estar en estado 'succeeded'
+        - Usuario no debe tener suscripción activa existente
+
+        **Resolución de Método de Pago:**
+        1. **Con setupIntentId** (recomendado): Extrae método de pago del SetupIntent completado
+        2. **Sin setupIntentId**: Usa método de pago por defecto del cliente o primera tarjeta adjunta
+
+        **Precios de Suscripción:**
+        - Plan Mensual: €8.99/mes (cobrado inmediatamente, luego recurrente mensual)
+        - Plan Anual: €59.99/año (cobrado inmediatamente, luego recurrente anual)
+
+        **Lógica de Negocio:**
+        1. Valida que usuario no tenga suscripción activa
+        2. Recupera/valida método de pago
+        3. Mapea planId a Stripe Price ID desde configuración de entorno
+        4. Crea Suscripción de Stripe (cobro inmediato)
+        5. Almacena suscripción en base de datos
+        6. Actualiza user.isPremium = true (si suscripción activa)
+        7. Retorna detalles de suscripción
+
+        **Webhooks:**
+        - `customer.subscription.created`: Confirma creación de suscripción
+        - `invoice.paid`: Confirma pago inicial y renovaciones futuras
+        - `invoice.payment_failed`: Maneja pagos fallidos
+
+        **Ciclo de Vida de Suscripción:**
+        - Active: Usuario tiene acceso premium
+        - Past Due: Pago falló, período de gracia activo
+        - Canceled: Usuario o sistema canceló suscripción
+        - Expired: Suscripción terminó (sin renovación)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSubscriptionRequest'
+            examples:
+              with_setup_intent:
+                summary: Crear suscripción con SetupIntent (recomendado)
+                value:
+                  planId: 'monthly'
+                  setupIntentId: 'seti_1QLxyz123abc'
+              without_setup_intent:
+                summary: Crear suscripción con método de pago por defecto del cliente
+                value:
+                  planId: 'annual'
+      responses:
+        '200':
+          description: Suscripción creada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionCreatedResponse'
+              examples:
+                active_subscription:
+                  summary: Suscripción creada y activa
+                  value:
+                    subscriptionId: 'sub_1QLxyzABC123'
+                    status: 'active'
+                    currentPeriodEnd: '2026-01-15T14:30:00.000Z'
+                incomplete_subscription:
+                  summary: Suscripción creada pero pago pendiente
+                  value:
+                    subscriptionId: 'sub_1QLxyzABC456'
+                    status: 'incomplete'
+                    currentPeriodEnd: '2026-01-15T14:30:00.000Z'
+        '400':
+          description: Solicitud inválida o violación de regla de negocio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                already_subscribed:
+                  summary: Usuario ya tiene suscripción activa
+                  value:
+                    success: false
+                    error: 'bad_request'
+                    message: 'Ya tienes una suscripción activa'
+                setup_intent_not_completed:
+                  summary: SetupIntent aún no completado por usuario
+                  value:
+                    success: false
+                    error: 'bad_request'
+                    message: 'SetupIntent no completado. Estado: requires_payment_method'
+                no_payment_method:
+                  summary: No se encontró método de pago para el cliente
+                  value:
+                    success: false
+                    error: 'bad_request'
+                    message: 'No se encontró ningún método de pago para este cliente.'
+                payment_method_mismatch:
+                  summary: Método de pago pertenece a cliente diferente
+                  value:
+                    success: false
+                    error: 'bad_request'
+                    message: 'El método de pago no pertenece a este cliente'
+                price_not_configured:
+                  summary: Price ID no configurado en entorno
+                  value:
+                    success: false
+                    error: 'bad_request'
+                    message: 'Price ID not configured for plan: monthly'
+        '401':
+          description: No autenticado - token JWT faltante o inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: 'unauthorized'
+                message: 'Valid authentication token required'
+        '500':
+          description: Error interno del servidor - fallo en API de Stripe o base de datos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: 'internal_server_error'
+                message: 'Failed to create subscription'
+
+  /api/payments/subscription/status:
+    get:
+      tags:
+        - Payments
+      summary: Obtener Estado de Suscripción del Usuario
+      description: |
+        Retorna el estado actual de suscripción o travel pass para el usuario autenticado.
+
+        **Prioridad de Estado:**
+        1. **Compra Única (Travel Pass)**: Verificada primero
+           - Retorna si usuario tiene travel pass activo (validUntil > now, status=succeeded)
+           - Retorna: `plan: null, status: 'active', isSubscribed: true`
+
+        2. **Suscripción**: Verificada segundo
+           - Retorna si usuario tiene suscripción con estado 'active' o 'past_due'
+           - Auto-expira si currentPeriodEnd < now (establece status='expired', isPremium=false)
+           - Retorna: `plan: 'monthly'|'annual', status: 'active'|'past_due'|'expired'`
+
+        3. **Sin Premium**: Sin compra o suscripción activa
+           - Retorna: `plan: null, status: 'none', isSubscribed: false`
+
+        **Valores de Estado:**
+        - `active`: Usuario tiene acceso premium activo
+        - `past_due`: Pago de suscripción falló, período de gracia activo
+        - `canceled`: Suscripción cancelada, acceso puede continuar hasta fin de período
+        - `expired`: Suscripción o travel pass expirado
+        - `none`: Sin suscripción o travel pass
+
+        **Casos de Uso:**
+        - Verificar si usuario necesita renovar premium
+        - Mostrar detalles de suscripción en configuración
+        - Hacer cumplir acceso a funciones premium
+        - Mostrar prompts de actualización apropiados
+
+        **Auto-Expiración:**
+        - Si subscription.currentPeriodEnd < now: estado establecido a 'expired', isPremium=false
+        - Travel pass auto-expira basado en fecha validUntil
+        - Cliente debe llamar periódicamente a este endpoint para sincronizar estado
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Estado de suscripción obtenido exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionStatusResponse'
+              examples:
+                active_travel_pass:
+                  summary: Usuario tiene Travel Pass activo
+                  value:
+                    plan: null
+                    status: 'active'
+                    expiryDate: '2025-12-23T14:30:00.000Z'
+                    isSubscribed: true
+                active_monthly_subscription:
+                  summary: Usuario tiene suscripción mensual activa
+                  value:
+                    plan: 'monthly'
+                    status: 'active'
+                    expiryDate: '2026-01-15T14:30:00.000Z'
+                    isSubscribed: true
+                active_annual_subscription:
+                  summary: Usuario tiene suscripción anual activa
+                  value:
+                    plan: 'annual'
+                    status: 'active'
+                    expiryDate: '2026-12-15T14:30:00.000Z'
+                    isSubscribed: true
+                past_due_subscription:
+                  summary: Pago de suscripción falló (período de gracia)
+                  value:
+                    plan: 'monthly'
+                    status: 'past_due'
+                    expiryDate: '2025-12-15T14:30:00.000Z'
+                    isSubscribed: false
+                expired_subscription:
+                  summary: Suscripción expirada
+                  value:
+                    plan: 'monthly'
+                    status: 'expired'
+                    expiryDate: '2025-11-15T14:30:00.000Z'
+                    isSubscribed: false
+                no_subscription:
+                  summary: Usuario no tiene suscripción ni travel pass
+                  value:
+                    plan: null
+                    status: 'none'
+                    isSubscribed: false
+        '401':
+          description: No autenticado - token JWT faltante o inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: 'unauthorized'
+                message: 'Valid authentication token required'
+        '500':
+          description: Error interno del servidor - fallo en base de datos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: 'internal_server_error'
+                message: 'Failed to retrieve subscription status'
+
+  /api/payments/subscription/cancel:
+    post:
+      tags:
+        - Payments
+      summary: Cancelar Suscripción al Final del Período
+      description: |
+        Cancela la suscripción activa del usuario al final del período de facturación actual.
+
+        **Comportamiento:**
+        - Marca la suscripción para cancelación en Stripe con `cancel_at_period_end: true`
+        - Usuario mantiene acceso premium hasta `currentPeriodEnd`
+        - No se emiten reembolsos (política de no reembolso)
+        - No se realizarán más cargos después del período actual
+        - Webhook `customer.subscription.deleted` se dispara en la fecha de finalización
+
+        **Restricciones:**
+        - Solo suscripciones mensuales y anuales pueden ser canceladas
+        - Travel Pass (compra única) NO puede ser cancelado ni reembolsado
+        - No se puede cancelar una suscripción ya cancelada
+        - Usuario debe tener suscripción activa o past_due
+
+        **Flujo de Cancelación:**
+        1. Cliente llama a este endpoint
+        2. Backend marca suscripción con `cancel_at_period_end: true` en Stripe
+        3. Usuario continúa con acceso premium hasta `currentPeriodEnd`
+        4. En fecha de expiración, Stripe dispara webhook `customer.subscription.deleted`
+        5. Webhook establece `status: 'canceled'` y `isPremium: false`
+
+        **Después de Cancelación:**
+        - Estado de suscripción permanece 'active' hasta el fin del período
+        - Para reactivar, usuario debe crear nueva suscripción (no hay reactivación)
+        - `cancel_at_period_end` se puede verificar en respuesta de este endpoint
+
+        **Casos de Uso:**
+        - Usuario desea cancelar antes de la próxima renovación
+        - Usuario probó premium y no desea continuar
+        - Usuario cambia a diferentes opciones de pago/plan (cancelar primero)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              description: No se requieren parámetros en el body
+            example: {}
+      responses:
+        '200':
+          description: Suscripción marcada para cancelación exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - subscription
+                  - message
+                properties:
+                  success:
+                    type: boolean
+                    description: Indica si la cancelación fue exitosa
+                    example: true
+                  subscription:
+                    type: object
+                    required:
+                      - id
+                      - status
+                      - cancelAtPeriodEnd
+                      - currentPeriodEnd
+                      - planId
+                    properties:
+                      id:
+                        type: string
+                        description: ID de suscripción de Stripe
+                        example: 'sub_1QLxyzABC123'
+                      status:
+                        type: string
+                        description: Estado actual de la suscripción (permanece 'active' hasta el fin del período)
+                        enum: [active, past_due]
+                        example: 'active'
+                      cancelAtPeriodEnd:
+                        type: boolean
+                        description: Indica si la suscripción está marcada para cancelación
+                        example: true
+                      currentPeriodEnd:
+                        type: string
+                        format: date-time
+                        description: Fecha cuando la suscripción será cancelada (formato ISO 8601)
+                        example: '2026-01-15T14:30:00.000Z'
+                      planId:
+                        type: string
+                        description: Tipo de plan de suscripción
+                        enum: [monthly, annual]
+                        example: 'monthly'
+                  message:
+                    type: string
+                    description: Mensaje descriptivo sobre la cancelación
+                    example: 'Tu suscripción será cancelada el 15 de enero de 2026. Seguirás teniendo acceso premium hasta esa fecha.'
+              examples:
+                monthly_subscription_canceled:
+                  summary: Suscripción mensual cancelada exitosamente
+                  value:
+                    success: true
+                    subscription:
+                      id: 'sub_1QLxyzABC123'
+                      status: 'active'
+                      cancelAtPeriodEnd: true
+                      currentPeriodEnd: '2026-01-15T14:30:00.000Z'
+                      planId: 'monthly'
+                    message: 'Tu suscripción será cancelada el 15 de enero de 2026. Seguirás teniendo acceso premium hasta esa fecha.'
+                annual_subscription_canceled:
+                  summary: Suscripción anual cancelada exitosamente
+                  value:
+                    success: true
+                    subscription:
+                      id: 'sub_1QLxyzABC456'
+                      status: 'active'
+                      cancelAtPeriodEnd: true
+                      currentPeriodEnd: '2026-12-15T14:30:00.000Z'
+                      planId: 'annual'
+                    message: 'Tu suscripción será cancelada el 15 de diciembre de 2026. Seguirás teniendo acceso premium hasta esa fecha.'
+        '400':
+          description: Solicitud inválida - sin suscripción, ya cancelada, o solo Travel Pass
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                no_subscription:
+                  summary: Usuario no tiene suscripción activa
+                  value:
+                    success: false
+                    error: 'not_found'
+                    message: 'No tienes una suscripción activa'
+                already_canceled:
+                  summary: Suscripción ya está cancelada
+                  value:
+                    success: false
+                    error: 'bad_request'
+                    message: 'La suscripción ya está cancelada'
+                travel_pass_only:
+                  summary: Usuario solo tiene Travel Pass (no cancelable)
+                  value:
+                    success: false
+                    error: 'bad_request'
+                    message: 'No tienes una suscripción activa. Los Travel Pass no pueden ser cancelados.'
+                stripe_error:
+                  summary: Error al comunicarse con Stripe
+                  value:
+                    success: false
+                    error: 'bad_request'
+                    message: 'Error al cancelar la suscripción. Por favor, intenta nuevamente.'
+        '401':
+          description: No autenticado - token JWT faltante o inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: 'unauthorized'
+                message: 'Valid authentication token required'
+        '404':
+          description: Suscripción no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: 'not_found'
+                message: 'No tienes una suscripción activa'
+        '500':
+          description: Error interno del servidor - fallo en API de Stripe o base de datos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: 'internal_server_error'
+                message: 'Error al cancelar la suscripción. Por favor, intenta nuevamente.'
+
+  /webhooks/stripe:
+    post:
+      tags:
+        - Webhooks
+      summary: Manejador de Eventos Webhook de Stripe
+      description: |
+        Recibe y procesa eventos webhook de Stripe para confirmaciones de pago y gestión del ciclo de vida de suscripciones.
+
+        **Instrucciones de Configuración:**
+        1. Stripe Dashboard → Developers → Webhooks
+        2. Agregar endpoint: https://api.artexplorer.com/webhooks/stripe
+        3. Seleccionar eventos (ver lista abajo)
+        4. Copiar webhook signing secret a variable de entorno STRIPE_WEBHOOK_SECRET
+
+        **Pruebas Locales:**
+        ```bash
+        stripe listen --forward-to localhost:3000/webhooks/stripe
+        ```
+
+        **Seguridad:**
+        - Valida firma webhook usando header `stripe-signature`
+        - Requiere request body raw para verificación de firma
+        - Rechaza solicitudes con firma inválida/faltante
+
+        **Eventos Manejados:**
+
+        **Travel Pass (Compra Única):**
+        - `payment_intent.succeeded`: Crea registro OneTimePurchase, otorga 7 días premium
+        - `payment_intent.payment_failed`: Marca compra como fallida
+        - `payment_intent.canceled`: Marca compra como fallida
+
+        **Suscripciones:**
+        - `customer.subscription.created`: Crea/actualiza registro de suscripción
+        - `customer.subscription.updated`: Actualiza estado y período de suscripción
+        - `customer.subscription.deleted`: Marca suscripción como cancelada
+        - `invoice.paid`: Confirma pago, actualiza período de suscripción
+        - `invoice.payment_failed`: Marca suscripción como past_due
+
+        **SetupIntents:**
+        - `setup_intent.succeeded`: Registra éxito (no se requiere acción)
+        - `setup_intent.canceled`: Registra cancelación (no se requiere acción)
+
+        **Idempotencia:**
+        - `payment_intent.succeeded` verifica procesamiento duplicado
+        - Seguro recibir el mismo evento múltiples veces
+
+        **Operaciones de Base de Datos:**
+        - Crea/actualiza registros OneTimePurchase
+        - Crea/actualiza registros Subscription
+        - Actualiza User.isPremium basado en estado de pago
+
+        **Manejo de Errores:**
+        - Registra todos los errores con contexto
+        - Retorna 400 para fallos de validación de firma
+        - Retorna 500 para errores de procesamiento
+        - Stripe reintenta webhooks fallidos automáticamente
+      requestBody:
+        required: true
+        description: Evento webhook raw de Stripe (JSON). Debe incluir header stripe-signature para verificación.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StripeWebhookEvent'
+            examples:
+              payment_intent_succeeded:
+                summary: Pago de Travel Pass exitoso
+                value:
+                  type: 'payment_intent.succeeded'
+                  data:
+                    object:
+                      id: 'pi_3QLxyz123'
+                      amount: 499
+                      currency: 'eur'
+                      status: 'succeeded'
+                      metadata:
+                        userId: '550e8400-e29b-41d4-a716-446655440000'
+                        planId: 'travel_pass'
+              subscription_created:
+                summary: Suscripción creada
+                value:
+                  type: 'customer.subscription.created'
+                  data:
+                    object:
+                      id: 'sub_1QLxyzABC'
+                      customer: 'cus_QtPxyz123'
+                      status: 'active'
+                      current_period_end: 1705330800
+                      items:
+                        data:
+                          - current_period_end: 1705330800
+                      metadata:
+                        userId: '550e8400-e29b-41d4-a716-446655440000'
+                        planId: 'monthly'
+              invoice_paid:
+                summary: Factura de suscripción pagada
+                value:
+                  type: 'invoice.paid'
+                  data:
+                    object:
+                      id: 'in_1QLxyzDEF'
+                      customer: 'cus_QtPxyz123'
+                      subscription: 'sub_1QLxyzABC'
+                      period_end: 1705330800
+                      paid: true
+      parameters:
+        - in: header
+          name: stripe-signature
+          required: true
+          schema:
+            type: string
+          description: Firma webhook de Stripe para verificación de eventos
+          example: 't=1702389845,v1=abc123...,v0=xyz789...'
+      responses:
+        '200':
+          description: Evento webhook procesado exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  received:
+                    type: boolean
+                    example: true
+        '400':
+          description: Firma webhook inválida o datos requeridos faltantes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missing_signature:
+                  summary: Header stripe-signature faltante
+                  value:
+                    success: false
+                    error: 'bad_request'
+                    message: 'Missing stripe-signature header'
+                invalid_signature:
+                  summary: Verificación de firma webhook falló
+                  value:
+                    success: false
+                    error: 'bad_request'
+                    message: 'Webhook Error: No signatures found matching the expected signature'
+                missing_body:
+                  summary: Body raw faltante
+                  value:
+                    success: false
+                    error: 'bad_request'
+                    message: 'Missing raw body'
+        '500':
+          description: Error interno del servidor mientras se procesa webhook
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: 'internal_server_error'
+                message: 'Error processing webhook event'

@@ -15,6 +15,7 @@ import { UserCollectionModule } from './user-collection/user-collection.module';
 import { CameraModule } from './camera/camera.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { SyncModule } from './sync/sync.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { SyncModule } from './sync/sync.module';
     CameraModule,
     WebhooksModule,
     SyncModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

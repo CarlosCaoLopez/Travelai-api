@@ -4,14 +4,16 @@ import type {
   ArtworkResponseDto,
   CategoryObjectDto,
 } from './dto/artwork-response.dto';
-import type {
-  TrendingArtworkDto,
-  TrendingArtworksResponseDto,
-} from './dto/trending-artwork.dto';
 
 @Injectable()
 export class ArtworksService {
   private readonly logger = new Logger(ArtworksService.name);
+
+  // Cache for daily artwork recommendation
+  private dailyRecommendationCache: {
+    date: string; // YYYY-MM-DD format
+    artworkId: string;
+  } | null = null;
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -251,70 +253,78 @@ export class ArtworksService {
     }
   }
 
-  async getMostPhotographedArtworks(
-    hours: number = 24,
-    limit: number = 10,
+  /**
+   * Get daily artwork recommendation for the authenticated user.
+   * Returns the same artwork for all users on a given day.
+   * Cache is automatically invalidated when the date changes.
+   */
+  async getDailyRecommendation(
+    userId: string,
     language: string = 'es',
-  ): Promise<TrendingArtworksResponseDto> {
+  ): Promise<ArtworkResponseDto> {
     this.logger.log(
-      `Fetching most photographed artworks in last ${hours} hours, limit: ${limit}, language: ${language}`,
+      `Getting daily recommendation for user: ${userId}, language: ${language}`,
     );
 
+    // Get current date in YYYY-MM-DD format
+    const today = new Date().toISOString().split('T')[0];
+
+    // Check if we have a valid cached recommendation for today
+    if (this.dailyRecommendationCache?.date === today) {
+      this.logger.log(
+        `Returning cached daily recommendation: ${this.dailyRecommendationCache.artworkId}`,
+      );
+      // Return the cached artwork
+      return this.getArtworkById(
+        this.dailyRecommendationCache.artworkId,
+        language,
+      );
+    }
+
+    // Generate a new recommendation
+    this.logger.log('Generating new daily recommendation');
+    const artwork = await this.generateRandomRecommendation(language);
+
+    // Cache the recommendation
+    this.dailyRecommendationCache = {
+      date: today,
+      artworkId: artwork.id,
+    };
+
+    this.logger.log(
+      `Daily recommendation generated and cached: ${artwork.title} (${artwork.id})`,
+    );
+
+    return artwork;
+  }
+
+  /**
+   * Generate a random artwork recommendation from the catalog.
+   * This is a private helper method used by getDailyRecommendation.
+   */
+  private async generateRandomRecommendation(
+    language: string = 'es',
+  ): Promise<ArtworkResponseDto> {
+    this.logger.log('Generating random artwork recommendation');
+
     try {
-      // Calculate the time threshold
-      const timeThreshold = new Date(Date.now() - hours * 60 * 60 * 1000);
+      // Count total artworks in the catalog
+      const totalCount = await this.prisma.artwork.count();
 
-      // Step 1: Group by artworkId and count photos
-      const photoCounts = await this.prisma.userCollectionItem.groupBy({
-        by: ['artworkId'],
-        where: {
-          artworkId: { not: null },
-          identifiedAt: {
-            gte: timeThreshold,
-          },
-        },
-        _count: {
-          id: true,
-        },
-        orderBy: {
-          _count: {
-            id: 'desc',
-          },
-        },
-        take: limit,
-      });
-
-      // If no results, return empty array
-      if (photoCounts.length === 0) {
-        this.logger.log(
-          'No photographed artworks found in the specified time window',
-        );
-        return {
-          artworks: [],
-          timeWindow: {
-            hours,
-            since: timeThreshold.toISOString(),
-          },
-        };
+      if (totalCount === 0) {
+        throw new NotFoundException('No artworks available in the catalog');
       }
 
-      // Extract artwork IDs and create a map of photo counts
-      const artworkIds = photoCounts
-        .map((item) => item.artworkId)
-        .filter((id): id is string => id !== null);
+      this.logger.log(`Total artworks in catalog: ${totalCount}`);
 
-      const photoCountMap = new Map<string, number>();
-      photoCounts.forEach((item) => {
-        if (item.artworkId) {
-          photoCountMap.set(item.artworkId, item._count.id);
-        }
-      });
+      // Generate a random index
+      const randomIndex = Math.floor(Math.random() * totalCount);
+      this.logger.log(`Selected random index: ${randomIndex}`);
 
-      // Step 2: Fetch full artwork details
+      // Fetch the artwork at that index
       const artworks = await this.prisma.artwork.findMany({
-        where: {
-          id: { in: artworkIds },
-        },
+        skip: randomIndex,
+        take: 1,
         include: {
           author: {
             select: {
@@ -347,53 +357,50 @@ export class ArtworksService {
         },
       });
 
-      // Step 3: Map to TrendingArtworkDto and sort by photo count
-      const results: TrendingArtworkDto[] = artworks
-        .map((artwork) => {
-          const translation = artwork.translations[0];
-          const countryTranslation = artwork.country.translations[0];
-          const categoryTranslation = artwork.category.translations[0];
+      if (!artworks || artworks.length === 0) {
+        throw new NotFoundException(
+          'Failed to generate artwork recommendation',
+        );
+      }
 
-          const category: CategoryObjectDto = {
-            id: artwork.category.id,
-            name: categoryTranslation?.name || artwork.category.id,
-            icon: artwork.category.icon,
-          };
+      const artwork = artworks[0];
+      const translation = artwork.translations[0];
+      const countryTranslation = artwork.country.translations[0];
+      const categoryTranslation = artwork.category.translations[0];
 
-          return {
-            id: artwork.id,
-            title: translation?.title || 'Untitled',
-            author: artwork.author.name,
-            year: artwork.year,
-            country: countryTranslation?.name || artwork.country.defaultName,
-            period: categoryTranslation?.name || null,
-            technique: translation?.technique || null,
-            dimensions: artwork.dimensions,
-            imageUrl: artwork.imageUrl,
-            description: translation?.description || '',
-            category,
-            createdAt: artwork.createdAt.toISOString(),
-            updatedAt: artwork.updatedAt.toISOString(),
-            photoCount: photoCountMap.get(artwork.id) || 0,
-          };
-        })
-        .sort((a, b) => b.photoCount - a.photoCount);
-
-      this.logger.log(
-        `Successfully retrieved ${results.length} trending artworks`,
-      );
-
-      return {
-        artworks: results,
-        timeWindow: {
-          hours,
-          since: timeThreshold.toISOString(),
-        },
+      const category: CategoryObjectDto = {
+        id: artwork.category.id,
+        name: categoryTranslation?.name || artwork.category.id,
+        icon: artwork.category.icon,
       };
+
+      const response: ArtworkResponseDto = {
+        id: artwork.id,
+        title: translation?.title || 'Untitled',
+        author: artwork.author.name,
+        year: artwork.year,
+        country: countryTranslation?.name || artwork.country.defaultName,
+        period: categoryTranslation?.name || null,
+        technique: translation?.technique || null,
+        dimensions: artwork.dimensions,
+        imageUrl: artwork.imageUrl,
+        description: translation?.description || '',
+        category,
+        createdAt: artwork.createdAt.toISOString(),
+        updatedAt: artwork.updatedAt.toISOString(),
+      };
+
+      this.logger.log(`Generated recommendation: ${response.title}`);
+      return response;
     } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error';
-      this.logger.error(`Error fetching trending artworks: ${errorMessage}`);
+      this.logger.error(
+        `Error generating random recommendation: ${errorMessage}`,
+      );
       throw error;
     }
   }

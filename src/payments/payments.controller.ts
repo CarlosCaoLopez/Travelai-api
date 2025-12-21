@@ -9,6 +9,7 @@ import type { SubscriptionStatusResponseDto } from './dto/subscription-status-re
 import { CreateSetupIntentDto } from './dto/create-setup-intent.dto';
 import type { SetupIntentResponseDto } from './dto/setup-intent-response.dto';
 import { CreateSubscriptionWithPaymentMethodDto } from './dto/create-subscription-with-payment-method.dto';
+import type { CancelSubscriptionResponseDto } from './dto/cancel-subscription-response.dto';
 
 @Controller('api/payments')
 export class PaymentsController {
@@ -86,5 +87,20 @@ export class PaymentsController {
       user.userId,
       dto,
     );
+  }
+
+  /**
+   * Cancel Subscription at period end
+   * User will retain premium access until the end of their current billing period
+   * No refunds are issued
+   * Requires authentication
+   */
+  @Post('subscription/cancel')
+  @UseGuards(SupabaseAuthGuard)
+  async cancelSubscription(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<CancelSubscriptionResponseDto> {
+    this.logger.log(`Canceling subscription for user ${user.userId}`);
+    return this.paymentsService.cancelSubscription(user.userId);
   }
 }

@@ -504,11 +504,13 @@ export class UserCollectionService {
         dimensions: collectionItem.artwork.dimensions,
         imageUrl: collectionItem.artwork.imageUrl,
         description: translation?.description || '',
-        category: {
-          id: collectionItem.artwork.category.id,
-          name: categoryTranslation?.name || '',
-          icon: collectionItem.artwork.category.icon,
-        },
+        category: collectionItem.artwork.category
+          ? {
+              id: collectionItem.artwork.category.id,
+              name: categoryTranslation?.name || '',
+              icon: collectionItem.artwork.category.icon,
+            }
+          : null,
         createdAt: collectionItem.artwork.createdAt.toISOString(),
         updatedAt: collectionItem.artwork.updatedAt.toISOString(),
         capturedImageUrl: collectionItem.capturedImageUrl,

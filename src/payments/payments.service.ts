@@ -3,6 +3,7 @@ import {
   Inject,
   Injectable,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
@@ -14,6 +15,7 @@ import { SubscriptionStatusResponseDto } from './dto/subscription-status-respons
 import { CreateSetupIntentDto } from './dto/create-setup-intent.dto';
 import { SetupIntentResponseDto } from './dto/setup-intent-response.dto';
 import { CreateSubscriptionWithPaymentMethodDto } from './dto/create-subscription-with-payment-method.dto';
+import { CancelSubscriptionResponseDto } from './dto/cancel-subscription-response.dto';
 import { PlanType, SubscriptionStatus } from '@prisma/client';
 
 @Injectable()
@@ -540,6 +542,81 @@ export class PaymentsService {
       expiryDate: subscription.currentPeriodEnd.toISOString(),
       isSubscribed: subscription.status === 'active',
     };
+  }
+
+  async cancelSubscription(
+    userId: string,
+  ): Promise<CancelSubscriptionResponseDto> {
+    this.logger.log(`Canceling subscription for user ${userId}`);
+
+    // Find user's active subscription
+    const subscription = await this.prisma.subscription.findFirst({
+      where: {
+        userId,
+        OR: [{ status: 'active' }, { status: 'past_due' }],
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Check if user has a subscription
+    if (!subscription) {
+      // Check if user only has travel pass
+      const purchase = await this.prisma.oneTimePurchase.findFirst({
+        where: {
+          userId,
+          status: 'succeeded',
+          validUntil: { gt: new Date() },
+        },
+      });
+
+      if (purchase) {
+        throw new BadRequestException(
+          'No tienes una suscripción activa. Los Travel Pass no pueden ser cancelados.',
+        );
+      }
+
+      throw new NotFoundException('No tienes una suscripción activa');
+    }
+
+    // Check if already canceled
+    if (subscription.status === 'canceled') {
+      throw new BadRequestException('La suscripción ya está cancelada');
+    }
+
+    try {
+      // Cancel subscription at period end in Stripe
+      const updatedSubscription = await this.stripe.subscriptions.update(
+        subscription.id,
+        {
+          cancel_at_period_end: true,
+        },
+      );
+
+      this.logger.log(
+        `Subscription ${subscription.id} marked for cancellation at period end`,
+      );
+
+      // Return cancellation details
+      return {
+        success: true,
+        subscription: {
+          id: subscription.id,
+          status: subscription.status,
+          cancelAtPeriodEnd: updatedSubscription.cancel_at_period_end,
+          currentPeriodEnd: subscription.currentPeriodEnd.toISOString(),
+          planId: subscription.planId,
+        },
+        message: `Tu suscripción será cancelada el ${subscription.currentPeriodEnd.toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}. Seguirás teniendo acceso premium hasta esa fecha.`,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to cancel subscription ${subscription.id}:`,
+        error,
+      );
+      throw new BadRequestException(
+        'Error al cancelar la suscripción. Por favor, intenta nuevamente.',
+      );
+    }
   }
 
   // ============= HELPER METHODS =============

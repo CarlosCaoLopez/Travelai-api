@@ -30,9 +30,11 @@ export class UsersService {
           ...(dto.displayName !== undefined && {
             displayName: dto.displayName,
           }),
-          ...(dto.avatarUrl !== undefined && { avatarUrl: dto.avatarUrl }),
           ...(dto.preferredLanguage !== undefined && {
             preferredLanguage: dto.preferredLanguage,
+          }),
+          ...(dto.allowDataCollection !== undefined && {
+            allowDataCollection: dto.allowDataCollection,
           }),
         },
       });
@@ -50,19 +52,84 @@ export class UsersService {
     id: string;
     email: string;
     displayName: string | null;
-    avatarUrl: string | null;
     preferredLanguage: string | null;
     isPremium: boolean;
+    allowDataCollection: boolean | null;
     createdAt: Date;
   }): UserResponseDto {
     return {
       id: user.id,
       email: user.email,
-      display_name: user.displayName,
-      avatar_url: user.avatarUrl,
-      preferred_language: user.preferredLanguage || 'es',
-      is_premium: user.isPremium,
-      created_at: user.createdAt.toISOString(),
+      displayName: user.displayName,
+      preferredLanguage: user.preferredLanguage || 'es',
+      isPremium: user.isPremium,
+      allowDataCollection: user.allowDataCollection,
+      createdAt: user.createdAt.toISOString(),
     };
+  }
+
+  async registerPushToken(
+    userId: string,
+    dto: { token: string; deviceId: string; platform: string },
+  ): Promise<void> {
+    await this.prisma.userPushToken.upsert({
+      where: {
+        userId_deviceId: {
+          userId,
+          deviceId: dto.deviceId,
+        },
+      },
+      update: {
+        token: dto.token,
+        platform: dto.platform,
+      },
+      create: {
+        userId,
+        token: dto.token,
+        deviceId: dto.deviceId,
+        platform: dto.platform,
+      },
+    });
+  }
+
+  async deletePushToken(userId: string, deviceId: string): Promise<void> {
+    await this.prisma.userPushToken.deleteMany({
+      where: {
+        userId,
+        deviceId,
+      },
+    });
+  }
+
+  async getNotificationPreferences(
+    userId: string,
+  ): Promise<{ dailyArtEnabled: boolean }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { dailyArtEnabled: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return { dailyArtEnabled: user.dailyArtEnabled };
+  }
+
+  async updateNotificationPreferences(
+    userId: string,
+    dto: { dailyArtEnabled?: boolean },
+  ): Promise<{ dailyArtEnabled: boolean }> {
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(dto.dailyArtEnabled !== undefined && {
+          dailyArtEnabled: dto.dailyArtEnabled,
+        }),
+      },
+      select: { dailyArtEnabled: true },
+    });
+
+    return { dailyArtEnabled: user.dailyArtEnabled };
   }
 }

@@ -193,7 +193,13 @@ IMPORTANTE:
 - El campo "country" es OPCIONAL:
   * Inclúyelo SOLO si "isMonument" es true
   * Debe ser el nombre del país donde está ubicado el monumento
-  * Si "isMonument" es false, omite este campo o déjalo como null`,
+  * Si "isMonument" es false, omite este campo o déjalo como null
+
+CRÍTICO: TODOS los valores de texto en el JSON deben estar EXCLUSIVAMENTE EN ESPAÑOL. No uses ningún texto en inglés, francés u otro idioma. Ejemplos:
+- INCORRECTO: "title": "The Last Judgment"
+- CORRECTO: "title": "El Juicio Final"
+- INCORRECTO: "description": "This painting depicts..."
+- CORRECTO: "description": "Esta pintura representa..."`,
 
       en: `You are an expert art historian with extensive knowledge of world artworks. Your specialty is to identify and provide accurate, verifiable, and concise information about paintings, sculptures, architecture, and monuments.${topWebEntity ? `\n\nADDITIONAL CONTEXT FROM GOOGLE VISION:\nMost relevant web entity identified: "${topWebEntity.description}" (confidence: ${topWebEntity.score?.toFixed(2) || 'N/A'})\nThis information can help you confirm or refine your identification, but rely primarily on your visual analysis of the image.` : ''}
 
@@ -232,7 +238,13 @@ IMPORTANT:
 - The "country" field is OPTIONAL:
   * Include it ONLY if "isMonument" is true
   * Must be the name of the country where the monument is located
-  * If "isMonument" is false, omit this field or leave it as null`,
+  * If "isMonument" is false, omit this field or leave it as null
+
+CRITICAL: ALL text values in the JSON must be EXCLUSIVELY IN ENGLISH. Do not use any Spanish, French, or other language text. Examples:
+- INCORRECT: "title": "El Juicio Final"
+- CORRECT: "title": "The Last Judgment"
+- INCORRECT: "description": "Esta pintura representa..."
+- CORRECT: "description": "This painting depicts..."`,
 
       fr: `Vous êtes un historien d'art expert avec une connaissance approfondie des œuvres d'art mondiales. Votre spécialité est d'identifier et de fournir des informations précises, vérifiables et concises sur les peintures, sculptures, architecture et monuments.${topWebEntity ? `\n\nCONTEXTE ADDITIONNEL DE GOOGLE VISION :\nEntité web la plus pertinente identifiée : "${topWebEntity.description}" (confiance : ${topWebEntity.score?.toFixed(2) || 'N/A'})\nCette information peut vous aider à confirmer ou affiner votre identification, mais fiez-vous principalement à votre analyse visuelle de l'image.` : ''}
 
@@ -271,7 +283,13 @@ IMPORTANT :
 - Le champ "country" est OPTIONNEL :
   * Incluez-le SEULEMENT si "isMonument" est true
   * Doit être le nom du pays où le monument est situé
-  * Si "isMonument" est false, omettez ce champ ou laissez-le comme null`,
+  * Si "isMonument" est false, omettez ce champ ou laissez-le comme null
+
+CRITIQUE: TOUTES les valeurs de texte dans le JSON doivent être EXCLUSIVEMENT EN FRANÇAIS. N'utilisez aucun texte en anglais, espagnol ou autre langue. Exemples:
+- INCORRECT: "title": "The Last Judgment"
+- CORRECT: "title": "Le Jugement dernier"
+- INCORRECT: "description": "This painting depicts..."
+- CORRECT: "description": "Cette peinture représente..."`,
     };
 
     return prompts[language] || prompts.es;

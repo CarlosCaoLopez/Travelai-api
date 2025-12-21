@@ -13,10 +13,6 @@ export class UserMetadata {
 
   @IsOptional()
   @IsString()
-  avatarUrl?: string;
-
-  @IsOptional()
-  @IsString()
   language?: string;
 }
 

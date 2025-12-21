@@ -123,18 +123,21 @@ model ArtworkTranslation {
 }
 
 model User {
-  id                String               @id @db.Uuid
-  email             String               @unique
-  displayName       String?              @map("display_name")
-  avatarUrl         String?              @map("avatar_url")
-  preferredLanguage String?              @default("es") @map("preferred_language") @db.VarChar(2)
-  isPremium         Boolean              @default(false) @map("is_premium")
-  stripeCustomerId  String?              @unique @map("stripe_customer_id")
-  createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
-  oneTimePurchases  OneTimePurchase[]
-  subscriptions     Subscription[]
-  collectionItems   UserCollectionItem[]
+  id                  String               @id @db.Uuid
+  email               String               @unique
+  displayName         String?              @map("display_name")
+  preferredLanguage   String?              @default("es") @map("preferred_language") @db.VarChar(2)
+  isPremium           Boolean              @default(false) @map("is_premium")
+  stripeCustomerId    String?              @unique @map("stripe_customer_id")
+  allowDataCollection Boolean?             @map("allow_data_collection")
+  dailyArtEnabled     Boolean              @default(false) @map("daily_art_enabled")
+  createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  oneTimePurchases    OneTimePurchase[]
+  subscriptions       Subscription[]
+  collectionItems     UserCollectionItem[]
+  pushTokens          UserPushToken[]
+
 
   @@map("users")
 }
@@ -215,4 +218,18 @@ enum PurchaseStatus {
   pending
   failed
   refunded
+}
+
+model UserPushToken {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String
+  deviceId  String   @map("device_id")
+  platform  String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, deviceId])
+  @@map("user_push_tokens")
 }

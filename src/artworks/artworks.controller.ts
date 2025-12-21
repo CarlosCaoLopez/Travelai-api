@@ -1,33 +1,22 @@
-import { Controller, Get, Param, Query, Logger } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  Query,
+  Logger,
+  UseGuards,
+} from '@nestjs/common';
 import { ArtworksService } from './artworks.service';
 import type { ArtworkDetailResponseDto } from './dto/artwork-response.dto';
-import type { TrendingArtworksResponseDto } from './dto/trending-artwork.dto';
+import { SupabaseAuthGuard } from '../auth/supabase-auth.guard';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/supabase-jwt.strategy';
 
 @Controller('api/artworks')
 export class ArtworksController {
   private readonly logger = new Logger(ArtworksController.name);
 
   constructor(private readonly artworksService: ArtworksService) {}
-
-  @Get('trending')
-  async getTrendingArtworks(
-    @Query('hours') hours: string = '24',
-    @Query('limit') limit: string = '10',
-    @Query('language') language: string = 'es',
-  ): Promise<TrendingArtworksResponseDto> {
-    this.logger.log(
-      `GET /api/artworks/trending - hours: ${hours}, limit: ${limit}, language: ${language}`,
-    );
-
-    const hoursNum = parseInt(hours, 10) || 24;
-    const limitNum = parseInt(limit, 10) || 10;
-
-    return await this.artworksService.getMostPhotographedArtworks(
-      hoursNum,
-      limitNum,
-      language,
-    );
-  }
 
   @Get('search')
   async searchArtworks(
@@ -49,6 +38,26 @@ export class ArtworksController {
       limitNum,
       offsetNum,
     );
+  }
+
+  @Get('daily-recommendation')
+  @UseGuards(SupabaseAuthGuard)
+  async getDailyRecommendation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('language') language: string = 'es',
+  ): Promise<ArtworkDetailResponseDto> {
+    this.logger.log(
+      `GET /api/artworks/daily-recommendation - userId: ${user.userId}, language: ${language}`,
+    );
+
+    const artwork = await this.artworksService.getDailyRecommendation(
+      user.userId,
+      language,
+    );
+
+    return {
+      artwork,
+    };
   }
 
   @Get(':id')
