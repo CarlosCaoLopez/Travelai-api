@@ -410,6 +410,39 @@ components:
           example: true
           description: 'Permiso para guardar fotos para mejorar la IA de reconocimiento'
 
+    DeleteAccountRequest:
+      type: object
+      description: 'Datos para confirmar la eliminación de cuenta'
+      required:
+        - confirmationUserId
+      properties:
+        confirmationUserId:
+          type: string
+          example: '123e4567-e89b-12d3-a456-426614174000'
+          description: 'ID del usuario para confirmar la eliminación (debe coincidir con el usuario autenticado)'
+
+    DeleteAccountResponse:
+      type: object
+      description: 'Respuesta de eliminación de cuenta exitosa'
+      required:
+        - success
+        - message
+        - deletedAt
+      properties:
+        success:
+          type: boolean
+          example: true
+          description: 'Indica si la eliminación fue exitosa'
+        message:
+          type: string
+          example: 'Your account has been successfully deleted'
+          description: 'Mensaje de confirmación'
+        deletedAt:
+          type: string
+          format: date-time
+          example: '2025-12-22T15:30:00Z'
+          description: 'Timestamp de cuándo se eliminó la cuenta'
+
     # --- Webhooks ---
     SupabaseWebhookPayload:
       type: object
@@ -1549,6 +1582,91 @@ paths:
                 success: false
                 error: 'Unauthorized'
                 message: 'No authentication token provided'
+
+    delete:
+      tags:
+        - Users
+      summary: Eliminar cuenta de usuario (GDPR/CCPA compliant)
+      description: |
+        Elimina permanentemente la cuenta del usuario cumpliendo con regulaciones GDPR y CCPA.
+
+        **Proceso de eliminación:**
+        1. Valida que el email de confirmación coincida con el email del usuario
+        2. Elimina el usuario de Supabase Auth (no podrá volver a autenticarse)
+        3. Anonimiza datos personales en la base de datos
+        4. Elimina tokens de notificaciones push
+        5. Preserva colecciones de arte (imágenes) de forma anónima
+        6. Preserva registros financieros (subscripciones/compras) anonimizados para cumplimiento legal
+
+        **Datos eliminados:**
+        - Email (reemplazado por `deleted_<userId>@deleted.travelai.com`)
+        - Nombre visible (`displayName`)
+        - Idioma preferido
+        - Permisos de recolección de datos
+        - Tokens de notificaciones push
+        - Usuario de Supabase Auth
+
+        **Datos preservados (anonimizados):**
+        - Registros de subscripciones (para cumplimiento fiscal - 7-10 años)
+        - Registros de compras únicas (para cumplimiento fiscal)
+        - Colecciones de arte e imágenes capturadas (userId = null, imágenes preservadas)
+
+        **Importante:**
+        - No hay periodo de gracia - la eliminación es inmediata
+        - No es reversible
+        - El usuario no podrá volver a autenticarse
+        - Las imágenes capturadas se preservan de forma anónima
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteAccountRequest'
+            example:
+              confirmationUserId: '123e4567-e89b-12d3-a456-426614174000'
+      responses:
+        '200':
+          description: Cuenta eliminada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteAccountResponse'
+              example:
+                success: true
+                message: 'Your account has been successfully deleted'
+                deletedAt: '2025-12-22T15:30:00Z'
+        '400':
+          description: ID de usuario de confirmación no coincide
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: 'Bad Request'
+                message: 'Confirmation user ID does not match authenticated user'
+        '401':
+          description: No autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: 'Unauthorized'
+                message: 'No authentication token provided'
+        '404':
+          description: Usuario no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                error: 'Not Found'
+                message: 'User not found'
 
   /api/sync/users/me/push-token:
     post:

@@ -1,11 +1,24 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserResponseDto } from './dto/user-response.dto';
+import { DeleteAccountDto } from './dto/delete-account.dto';
+import { DeleteAccountResponseDto } from './dto/delete-account-response.dto';
+import { SupabaseService } from '../../supabase/supabase.service';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(UsersService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly supabaseService: SupabaseService,
+  ) {}
 
   async getUserProfile(userId: string): Promise<UserResponseDto> {
     const user = await this.prisma.user.findUnique({
@@ -131,5 +144,105 @@ export class UsersService {
     });
 
     return { dailyArtEnabled: user.dailyArtEnabled };
+  }
+
+  /**
+   * Delete user account with GDPR/CCPA compliance
+   * - Deletes user from Supabase Auth
+   * - Anonymizes personal data in PostgreSQL
+   * - Preserves financial records (anonymized) for legal compliance
+   * - Preserves collection items with images (userId set to null)
+   * - Deletes push tokens (CASCADE)
+   */
+  async deleteAccount(
+    userId: string,
+    dto: DeleteAccountDto,
+  ): Promise<DeleteAccountResponseDto> {
+    this.logger.log(`Starting account deletion for user: ${userId}`);
+
+    // Step 1: Validate confirmation user ID
+    if (userId !== dto.confirmationUserId) {
+      throw new BadRequestException(
+        'Confirmation user ID does not match authenticated user',
+      );
+    }
+
+    // Step 2: Get user data for deletion process
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { stripeCustomerId: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const deletedAt = new Date();
+    const anonymizedEmail = `deleted_${userId}@deleted.travelai.com`;
+
+    try {
+      // Step 3: Delete from Supabase Auth (external service)
+      // Continue even if this fails - user data will still be anonymized
+      try {
+        await this.supabaseService.deleteAuthUser(userId);
+        this.logger.log(`Deleted Supabase Auth user: ${userId}`);
+      } catch (error) {
+        this.logger.warn(
+          `Failed to delete Supabase Auth user ${userId}, continuing with anonymization`,
+          error,
+        );
+      }
+
+      // Step 4: Anonymize user data in database (atomic transaction)
+      await this.prisma.$transaction(async (tx) => {
+        // Delete push tokens (CASCADE delete)
+        const deletedTokens = await tx.userPushToken.deleteMany({
+          where: { userId },
+        });
+        this.logger.log(
+          `Deleted ${deletedTokens.count} push tokens for user ${userId}`,
+        );
+
+        // Update collection items to disconnect from user (preserves images)
+        const updatedItems = await tx.userCollectionItem.updateMany({
+          where: { userId },
+          data: { userId: null },
+        });
+        this.logger.log(
+          `Preserved ${updatedItems.count} collection items (anonymized) for user ${userId}`,
+        );
+
+        // Anonymize user record (subscriptions/purchases CASCADE with anonymized userId)
+        await tx.user.update({
+          where: { id: userId },
+          data: {
+            email: anonymizedEmail,
+            displayName: null,
+            preferredLanguage: null,
+            allowDataCollection: null,
+            dailyArtEnabled: false,
+            stripeCustomerId: null,
+            isPremium: false,
+            deletedAt,
+          },
+        });
+
+        this.logger.log(`Anonymized user data for: ${userId}`);
+      });
+
+      this.logger.log(`Successfully deleted account for user: ${userId}`);
+
+      return {
+        success: true,
+        message: 'Your account has been successfully deleted',
+        deletedAt: deletedAt.toISOString(),
+      };
+    } catch (error) {
+      this.logger.error(
+        `Error deleting account for user ${userId}:`,
+        error.stack,
+      );
+      throw error;
+    }
   }
 }

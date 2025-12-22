@@ -1,6 +1,6 @@
 export interface UserArtworkResponseDto {
   id: string;
-  userId: string;
+  userId: string | null;
   artworkId: string | null;
   title: string;
   author: string;

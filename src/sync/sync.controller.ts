@@ -23,6 +23,8 @@ import type { UserArtworkResponseDto } from './user-artworks/dto/user-artwork-re
 import { RegisterPushTokenDto } from './users/dto/register-push-token.dto';
 import { NotificationPreferencesResponseDto } from './users/dto/notification-preferences-response.dto';
 import { UpdateNotificationPreferencesDto } from './users/dto/update-notification-preferences.dto';
+import { DeleteAccountDto } from './users/dto/delete-account.dto';
+import type { DeleteAccountResponseDto } from './users/dto/delete-account-response.dto';
 
 @Controller('api/sync')
 export class SyncController {
@@ -107,5 +109,14 @@ export class SyncController {
     @Body() dto: UpdateNotificationPreferencesDto,
   ): Promise<NotificationPreferencesResponseDto> {
     return this.usersService.updateNotificationPreferences(user.userId, dto);
+  }
+
+  @Delete('users/me')
+  @UseGuards(SupabaseAuthGuard)
+  async deleteAccount(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: DeleteAccountDto,
+  ): Promise<DeleteAccountResponseDto> {
+    return this.usersService.deleteAccount(user.userId, dto);
   }
 }

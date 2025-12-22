@@ -131,6 +131,7 @@ model User {
   stripeCustomerId    String?              @unique @map("stripe_customer_id")
   allowDataCollection Boolean?             @map("allow_data_collection")
   dailyArtEnabled     Boolean              @default(false) @map("daily_art_enabled")
+  deletedAt           DateTime?            @map("deleted_at") @db.Timestamptz(6)
   createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
   oneTimePurchases    OneTimePurchase[]
@@ -177,7 +178,7 @@ model Subscription {
 
 model UserCollectionItem {
   id                String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  userId            String    @map("user_id") @db.Uuid
+  userId            String?   @map("user_id") @db.Uuid
   artworkId         String?   @map("artwork_id") @db.Uuid
   capturedImageUrl  String    @map("captured_image_url")
   identifiedAt      DateTime  @default(now()) @map("identified_at") @db.Timestamptz(6)
@@ -193,7 +194,7 @@ model UserCollectionItem {
   updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   artwork           Artwork?  @relation(fields: [artworkId], references: [id])
   customCategory    Category? @relation("CustomCategoryCollectionItems", fields: [customCategoryId], references: [id])
-  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([identifiedAt(sort: Desc)], map: "idx_user_collection_date")
   @@index([userId], map: "idx_user_collection_user")
