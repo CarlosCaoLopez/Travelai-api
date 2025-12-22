@@ -24,6 +24,7 @@ import { ArtworkDetailsResponseDto } from './dto/artwork-details-response.dto';
 import { ArtworkDetailsService } from './services/artwork-details.service';
 import { imageFileFilter } from './utils/file-validation';
 import { getMessage } from './constants/messages';
+import { StrictThrottle } from '../common/decorators/throttle.decorator';
 
 @Controller('api/camera')
 @UseGuards(SupabaseAuthGuard)
@@ -36,6 +37,7 @@ export class CameraController {
   ) {}
 
   @Post('recognize')
+  @StrictThrottle()
   @UseInterceptors(
     FileInterceptor('image', {
       storage: memoryStorage(), // Keep in memory, don't save to disk
@@ -103,6 +105,7 @@ export class CameraController {
   }
 
   @Post('artwork/details')
+  @StrictThrottle()
   async getArtworkDetails(
     @CurrentUser() user: AuthenticatedUser,
     @Body() request: ArtworkDetailsRequestDto,

@@ -4,6 +4,7 @@ import { ExploreService } from './explore.service';
 import type { ArtworksListResponseDto } from './dto/artwork-response.dto';
 import { GetNearbyLocationsQueryDto } from './dto/get-nearby-locations-query.dto';
 import { NearbyLocationsResponseDto } from './dto/nearby-locations-response.dto';
+import { RelaxedThrottle } from '../common/decorators/throttle.decorator';
 
 @Controller('api/explore')
 @ApiTags('Explore')
@@ -13,6 +14,7 @@ export class ExploreController {
   constructor(private readonly exploreService: ExploreService) {}
 
   @Get('artworks')
+  @RelaxedThrottle()
   async getArtworks(
     @Query('category_id') categoryId?: string,
     @Query('country') country?: string,
@@ -34,6 +36,7 @@ export class ExploreController {
   }
 
   @Get('locations/nearby')
+  @RelaxedThrottle()
   @ApiOperation({
     summary: 'Obtener lugares culturales cercanos',
     description:

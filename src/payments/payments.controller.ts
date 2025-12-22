@@ -10,6 +10,10 @@ import { CreateSetupIntentDto } from './dto/create-setup-intent.dto';
 import type { SetupIntentResponseDto } from './dto/setup-intent-response.dto';
 import { CreateSubscriptionWithPaymentMethodDto } from './dto/create-subscription-with-payment-method.dto';
 import type { CancelSubscriptionResponseDto } from './dto/cancel-subscription-response.dto';
+import {
+  StrictThrottle,
+  ModerateThrottle,
+} from '../common/decorators/throttle.decorator';
 
 @Controller('api/payments')
 export class PaymentsController {
@@ -24,6 +28,7 @@ export class PaymentsController {
    * Requires authentication
    */
   @Post('create-intent')
+  @StrictThrottle()
   @UseGuards(SupabaseAuthGuard)
   async createPaymentIntent(
     @CurrentUser() user: AuthenticatedUser,
@@ -40,6 +45,7 @@ export class PaymentsController {
    * Requires authentication
    */
   @Get('subscription/status')
+  @ModerateThrottle()
   @UseGuards(SupabaseAuthGuard)
   async getSubscriptionStatus(
     @CurrentUser() user: AuthenticatedUser,
@@ -54,6 +60,7 @@ export class PaymentsController {
    * Requires authentication
    */
   @Post('setup-intent')
+  @StrictThrottle()
   @UseGuards(SupabaseAuthGuard)
   async createSetupIntent(
     @CurrentUser() user: AuthenticatedUser,
@@ -71,6 +78,7 @@ export class PaymentsController {
    * Requires authentication
    */
   @Post('create-subscription-with-payment-method')
+  @StrictThrottle()
   @UseGuards(SupabaseAuthGuard)
   async createSubscriptionWithPaymentMethod(
     @CurrentUser() user: AuthenticatedUser,
@@ -96,6 +104,7 @@ export class PaymentsController {
    * Requires authentication
    */
   @Post('subscription/cancel')
+  @StrictThrottle()
   @UseGuards(SupabaseAuthGuard)
   async cancelSubscription(
     @CurrentUser() user: AuthenticatedUser,

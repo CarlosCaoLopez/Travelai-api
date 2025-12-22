@@ -7,6 +7,7 @@ import {
   Logger,
   Inject,
 } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import type { RawBodyRequest } from '@nestjs/common';
 import type { Request } from 'express';
 import Stripe from 'stripe';
@@ -25,6 +26,7 @@ export class WebhooksController {
   ) {}
 
   @Post('stripe')
+  @SkipThrottle()
   async handleStripeWebhook(
     @Headers('stripe-signature') signature: string,
     @Req() request: RawBodyRequest<Request>,

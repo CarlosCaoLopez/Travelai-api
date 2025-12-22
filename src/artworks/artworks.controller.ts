@@ -11,6 +11,10 @@ import type { ArtworkDetailResponseDto } from './dto/artwork-response.dto';
 import { SupabaseAuthGuard } from '../auth/supabase-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/supabase-jwt.strategy';
+import {
+  ModerateThrottle,
+  RelaxedThrottle,
+} from '../common/decorators/throttle.decorator';
 
 @Controller('api/artworks')
 export class ArtworksController {
@@ -19,6 +23,7 @@ export class ArtworksController {
   constructor(private readonly artworksService: ArtworksService) {}
 
   @Get('search')
+  @ModerateThrottle()
   async searchArtworks(
     @Query('q') query: string,
     @Query('language') language: string = 'es',
@@ -41,6 +46,7 @@ export class ArtworksController {
   }
 
   @Get('daily-recommendation')
+  @RelaxedThrottle()
   @UseGuards(SupabaseAuthGuard)
   async getDailyRecommendation(
     @CurrentUser() user: AuthenticatedUser,
@@ -61,6 +67,7 @@ export class ArtworksController {
   }
 
   @Get(':id')
+  @RelaxedThrottle()
   async getArtworkById(
     @Param('id') id: string,
     @Query('language') language: string = 'es',

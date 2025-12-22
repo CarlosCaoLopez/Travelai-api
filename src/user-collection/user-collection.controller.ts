@@ -13,9 +13,11 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/supabase-jwt.strategy';
 import { UserCollectionService } from './user-collection.service';
 import { IdentifyArtworkDto } from './dto/identify-artwork.dto';
+import { ModerateThrottle } from '../common/decorators/throttle.decorator';
 
 @Controller('api/user/collection')
 @UseGuards(SupabaseAuthGuard)
+@ModerateThrottle()
 export class UserCollectionController {
   constructor(private readonly userCollectionService: UserCollectionService) {}
 
