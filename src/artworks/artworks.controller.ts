@@ -72,6 +72,13 @@ export class ArtworksController {
     @Param('id') id: string,
     @Query('language') language: string = 'es',
   ): Promise<ArtworkDetailResponseDto> {
+    // 🌍 LOG LANGUAGE PARAMETER
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🌍 ENDPOINT /api/artworks/:id - LANGUAGE PARAMETER');
+    console.log(`Artwork ID: ${id}`);
+    console.log(`Language received: ${language}`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
     this.logger.log(`GET /api/artworks/${id} - language: ${language}`);
 
     const artwork = await this.artworksService.getArtworkById(id, language);

@@ -10,7 +10,7 @@ import { Throttle } from '@nestjs/throttler';
  * - Account deletion
  * - Other critical operations
  */
-export const StrictThrottle = () => Throttle([{ ttl: 60000, limit: 10 }]);
+export const StrictThrottle = () => Throttle({ default: { ttl: 60000, limit: 10 } });
 
 /**
  * Moderate rate limiting decorator for user data operations.
@@ -22,7 +22,7 @@ export const StrictThrottle = () => Throttle([{ ttl: 60000, limit: 10 }]);
  * - Push token management
  * - Search endpoints
  */
-export const ModerateThrottle = () => Throttle([{ ttl: 60000, limit: 30 }]);
+export const ModerateThrottle = () => Throttle({ default: { ttl: 60000, limit: 30 } });
 
 /**
  * Relaxed rate limiting decorator for public catalog/browse endpoints.
@@ -34,4 +34,4 @@ export const ModerateThrottle = () => Throttle([{ ttl: 60000, limit: 30 }]);
  * - Quotes and recommendations
  * - Nearby locations
  */
-export const RelaxedThrottle = () => Throttle([{ ttl: 60000, limit: 60 }]);
+export const RelaxedThrottle = () => Throttle({ default: { ttl: 60000, limit: 60 } });

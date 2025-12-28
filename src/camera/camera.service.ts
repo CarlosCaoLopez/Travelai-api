@@ -87,6 +87,13 @@ export class CameraService {
     localUri: string,
     language: string = 'es',
   ): Promise<RecognitionResponseDto> {
+    // 🌍 LOG LANGUAGE PARAMETER
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🌍 CAMERA RECOGNIZE LANGUAGE PARAMETER');
+    console.log(`Language received: ${language}`);
+    console.log(`User ID: ${userId}`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
     this.logger.log(
       `Recognition request from user ${userId}, language: ${language}`,
     );
@@ -520,11 +527,38 @@ export class CameraService {
     }
 
     // 6. Match against database
+    this.logger.log(
+      `🔍 Starting DB match: title="${artworkData.title}", artist="${artworkData.artist}", language="${language}"`,
+    );
     const matchedArtwork = await this.matchingService.findMatchingArtwork(
       artworkData.title || '',
       artworkData.artist || '',
       language,
     );
+
+    if (matchedArtwork) {
+      this.logger.log(
+        `✅ MATCH FOUND: ${JSON.stringify({
+          id: matchedArtwork.id,
+          author: matchedArtwork.author?.name,
+          year: matchedArtwork.year,
+          translationsCount: matchedArtwork.translations?.length || 0,
+          translations: matchedArtwork.translations?.map((t: any) => ({
+            language: t.language,
+            title: t.title,
+            description: t.description?.substring(0, 100),
+          })),
+          categoryTranslations: matchedArtwork.category?.translations?.map(
+            (t: any) => ({
+              language: t.language,
+              name: t.name,
+            }),
+          ),
+        })}`,
+      );
+    } else {
+      this.logger.log('❌ NO MATCH FOUND - Will use Qwen data as fallback');
+    }
 
     // 7. Save to user collection with localUri (no upload to storage)
     const collectionItem = await this.saveToCollection(
@@ -644,6 +678,13 @@ export class CameraService {
         );
       }
 
+      // 🔍 LOG PROMPT BEING SENT TO QWEN-FLASH
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('🤖 QWEN-FLASH PROMPT (camera.service.ts)');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log(prompt);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
       const response = await this.qwenClient.chat.completions.create({
         model: this.qwenModel,
         messages: [
@@ -673,8 +714,15 @@ export class CameraService {
         this.logger.log(`  confidence: ${parsedResult.confidence}`);
         this.logger.log(`  title: ${parsedResult.title || 'N/A'}`);
         this.logger.log(`  artist: ${parsedResult.artist || 'N/A'}`);
+        this.logger.log(
+          `  description: ${parsedResult.description?.substring(0, 100) || 'N/A'}...`,
+        );
         this.logger.log(`  isMonument: ${parsedResult.isMonument || false}`);
         this.logger.log(`  country: ${parsedResult.country || 'N/A'}`);
+        this.logger.log(`  period: ${parsedResult.period || 'N/A'}`);
+        this.logger.log(
+          `📊 QWEN DATA COMPLETE: ${JSON.stringify(parsedResult)}`,
+        );
       } else {
         this.logger.warn('⚠️ Failed to parse enhanced Qwen Flash response');
       }
@@ -1016,10 +1064,28 @@ CRITIQUE: TOUTES les valeurs de texte dans le JSON doivent être EXCLUSIVEMENT E
     matchedArtwork: any,
     language: string,
   ): RecognitionResponseDto {
-    const translation = matchedArtwork?.translations?.[0];
-    const categoryTranslation = matchedArtwork?.category?.translations?.[0];
+    this.logger.log(
+      `🏗️ Building response with language="${language}", hasMatch=${!!matchedArtwork}`,
+    );
 
-    return {
+    const translation =
+      matchedArtwork?.translations?.find((t: any) => t.language === language) ||
+      matchedArtwork?.translations?.[0];
+    const categoryTranslation =
+      matchedArtwork?.category?.translations?.find(
+        (t: any) => t.language === language,
+      ) || matchedArtwork?.category?.translations?.[0];
+
+    this.logger.log(
+      `📝 Translation selected: ${JSON.stringify({
+        hasTranslation: !!translation,
+        translationLanguage: translation?.language,
+        translationTitle: translation?.title,
+        fallbackToQwen: !translation,
+      })}`,
+    );
+
+    const response = {
       success: true,
       identified: true,
       artwork: {
@@ -1037,5 +1103,7 @@ CRITIQUE: TOUTES les valeurs de texte dans le JSON doivent être EXCLUSIVEMENT E
       savedToCollection: true,
       message: getMessage(language, 'SUCCESS_IDENTIFIED'),
     };
+
+    return response;
   }
 }

@@ -733,7 +733,16 @@ paths:
         **Limitaciones:**
         - Tamaño máximo: 10MB
         - Formatos soportados: JPG, PNG, HEIC
-        - Rate limiting aplicado según tier de suscripción del usuario
+        - Rate limiting: 10 requests/minuto (ráfagas)
+
+        **Sistema de Cuotas Diarias (usuarios no-premium):**
+        - Día 1 de uso: 5 reconocimientos exitosos permitidos
+        - Día 2 de uso: 2 reconocimientos exitosos permitidos
+        - Día 3 de uso: 2 reconocimientos exitosos permitidos
+        - Días 4-30: 1 reconocimiento exitoso por día
+        - Después de 30 días: El ciclo se reinicia automáticamente
+        - **Nota:** Solo cuentan reconocimientos exitosos (obras realmente identificadas)
+        - **Usuarios Premium:** Reconocimientos ilimitados (bypass completo)
       security:
         - bearerAuth: []
       parameters:
@@ -835,8 +844,105 @@ paths:
                 success: false
                 error: 'payload_too_large'
                 message: 'Image file size must not exceed 10MB'
+        '403':
+          description: Cuota diaria excedida - usuario ha alcanzado su límite de reconocimientos del día
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                    example: 403
+                  error:
+                    type: string
+                    example: 'QuotaExceeded'
+                  message:
+                    type: string
+                    description: Mensaje en el idioma preferido del usuario
+                  quotaInfo:
+                    type: object
+                    properties:
+                      hasQuota:
+                        type: boolean
+                        example: false
+                      currentUsageDay:
+                        type: integer
+                        description: Día de uso actual (0=primer día, 1=segundo día, etc.)
+                        example: 3
+                      dailyLimit:
+                        type: integer
+                        description: Límite diario según el día de uso
+                        example: 1
+                      usedToday:
+                        type: integer
+                        description: Reconocimientos exitosos realizados hoy
+                        example: 1
+                      remainingToday:
+                        type: integer
+                        description: Reconocimientos restantes para hoy
+                        example: 0
+                      resetsAt:
+                        type: string
+                        format: date-time
+                        description: Timestamp cuando resetea la cuota diaria (próximo día a las 00:00 Madrid)
+                        example: '2025-12-28T00:00:00.000Z'
+                      cycleResetsAt:
+                        type: string
+                        format: date-time
+                        description: Timestamp cuando resetea el ciclo completo de 30 días
+                        example: '2026-01-26T10:30:00.000Z'
+                      isPremium:
+                        type: boolean
+                        example: false
+              examples:
+                spanish:
+                  summary: Usuario en español alcanzó su límite (Día 4, 1 reconocimiento usado)
+                  value:
+                    statusCode: 403
+                    error: 'QuotaExceeded'
+                    message: 'Has alcanzado tu límite diario de reconocimientos. Intenta mañana o mejora a Premium para reconocimientos ilimitados.'
+                    quotaInfo:
+                      hasQuota: false
+                      currentUsageDay: 3
+                      dailyLimit: 1
+                      usedToday: 1
+                      remainingToday: 0
+                      resetsAt: '2025-12-28T00:00:00.000Z'
+                      cycleResetsAt: '2026-01-26T10:30:00.000Z'
+                      isPremium: false
+                english:
+                  summary: User in English reached daily limit (Day 2, 2 recognitions used)
+                  value:
+                    statusCode: 403
+                    error: 'QuotaExceeded'
+                    message: 'You have reached your daily recognition limit. Try again tomorrow or upgrade to Premium for unlimited recognitions.'
+                    quotaInfo:
+                      hasQuota: false
+                      currentUsageDay: 1
+                      dailyLimit: 2
+                      usedToday: 2
+                      remainingToday: 0
+                      resetsAt: '2025-12-28T00:00:00.000Z'
+                      cycleResetsAt: '2026-01-15T08:45:00.000Z'
+                      isPremium: false
+                french:
+                  summary: Utilisateur en français a atteint la limite quotidienne (Jour 1, 5 reconnaissances utilisées)
+                  value:
+                    statusCode: 403
+                    error: 'QuotaExceeded'
+                    message: 'Vous avez atteint votre limite quotidienne de reconnaissance. Réessayez demain ou passez à Premium pour des reconnaissances illimitées.'
+                    quotaInfo:
+                      hasQuota: false
+                      currentUsageDay: 0
+                      dailyLimit: 5
+                      usedToday: 5
+                      remainingToday: 0
+                      resetsAt: '2025-12-28T00:00:00.000Z'
+                      cycleResetsAt: '2026-01-20T12:00:00.000Z'
+                      isPremium: false
         '429':
-          description: Demasiadas solicitudes - rate limit excedido
+          description: Demasiadas solicitudes - rate limit excedido (10 requests/minuto)
           content:
             application/json:
               schema:
@@ -844,7 +950,7 @@ paths:
               example:
                 success: false
                 error: 'rate_limit_exceeded'
-                message: 'Recognition limit reached. Upgrade to premium for unlimited scans.'
+                message: 'Too many requests. Please wait a moment and try again.'
         '500':
           description: Error interno del servidor - fallo en procesamiento IA o base de datos
           content:

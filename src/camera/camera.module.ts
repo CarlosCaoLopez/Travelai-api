@@ -5,6 +5,7 @@ import { AuthModule } from '../auth/auth.module';
 import { StorageModule } from '../storage/storage.module';
 import { SyncModule } from '../sync/sync.module';
 import { DataForSEOModule } from '../integrations/dataforseo/dataforseo.module';
+import { QuotaModule } from '../quota/quota.module';
 import { CameraController } from './camera.controller';
 import { CameraService } from './camera.service';
 import { QwenVisionService } from './services/qwen-vision.service';
@@ -27,6 +28,7 @@ import { ArtworkDetailsService } from './services/artwork-details.service';
     StorageModule,
     SyncModule,
     DataForSEOModule,
+    QuotaModule,
   ],
   controllers: [CameraController],
   providers: [

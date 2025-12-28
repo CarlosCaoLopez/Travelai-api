@@ -88,20 +88,21 @@ model CategoryTranslation {
 }
 
 model Artwork {
-  id                  String               @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  authorId            String               @map("author_id") @db.Uuid
-  countryCode         String               @map("country_code") @db.Char(2)
-  categoryId          String               @map("category_id")
-  year                String?              @db.VarChar(50)
-  dimensions          String?              @db.VarChar(100)
-  imageUrl            String               @map("image_url")
-  createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt           DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
-  translations        ArtworkTranslation[]
-  author              Author               @relation(fields: [authorId], references: [id])
-  category            Category             @relation("CategoryArtwork", fields: [categoryId], references: [id])
-  country             Country              @relation(fields: [countryCode], references: [isoCode])
-  userCollectionItems UserCollectionItem[]
+  id                   String                @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  authorId             String                @map("author_id") @db.Uuid
+  countryCode          String                @map("country_code") @db.Char(2)
+  categoryId           String                @map("category_id")
+  year                 String?               @db.VarChar(50)
+  dimensions           String?               @db.VarChar(100)
+  imageUrl             String                @map("image_url")
+  createdAt            DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  translations         ArtworkTranslation[]
+  author               Author                @relation(fields: [authorId], references: [id])
+  category             Category              @relation("CategoryArtwork", fields: [categoryId], references: [id])
+  country              Country               @relation(fields: [countryCode], references: [isoCode])
+  userCollectionItems  UserCollectionItem[]
+  dailyRecommendations DailyRecommendation[]
 
   @@index([authorId])
   @@index([categoryId])
@@ -138,6 +139,7 @@ model User {
   subscriptions       Subscription[]
   collectionItems     UserCollectionItem[]
   pushTokens          UserPushToken[]
+  quotaUsage          UserQuotaUsage[]
 
 
   @@map("users")
@@ -233,4 +235,33 @@ model UserPushToken {
 
   @@unique([userId, deviceId])
   @@map("user_push_tokens")
+}
+
+model DailyRecommendation {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  currentDate String   @map("current_date") @db.VarChar(10)
+  artworkId   String   @map("artwork_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  artwork     Artwork  @relation(fields: [artworkId], references: [id], onDelete: Cascade)
+
+  @@map("daily_recommendations")
+}
+
+model UserQuotaUsage {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  endpoint        String   @db.VarChar(100)
+  firstUsedAt     DateTime @map("first_used_at") @db.Timestamptz(6)
+  lastResetAt     DateTime @map("last_reset_at") @db.Timestamptz(6)
+  usageDays       Int      @default(0) @map("usage_days")
+  successfulToday Int      @default(0) @map("successful_today")
+  lastUsageDate   String?  @map("last_usage_date") @db.VarChar(10)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, endpoint])
+  @@index([userId, endpoint])
+  @@map("user_quota_usage")
 }

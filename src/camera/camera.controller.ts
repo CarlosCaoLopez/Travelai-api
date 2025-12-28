@@ -25,6 +25,9 @@ import { ArtworkDetailsService } from './services/artwork-details.service';
 import { imageFileFilter } from './utils/file-validation';
 import { getMessage } from './constants/messages';
 import { StrictThrottle } from '../common/decorators/throttle.decorator';
+import { DailyQuota } from '../quota/decorators/daily-quota.decorator';
+import { QuotaCountingInterceptor } from '../quota/interceptors/quota-counting.interceptor';
+import { QuotaGuard } from '../quota/guards/quota.guard';
 
 @Controller('api/camera')
 @UseGuards(SupabaseAuthGuard)
@@ -37,8 +40,11 @@ export class CameraController {
   ) {}
 
   @Post('recognize')
+  @UseGuards(QuotaGuard)
+  @DailyQuota({ endpoint: 'camera_recognize' })
   @StrictThrottle()
   @UseInterceptors(
+    QuotaCountingInterceptor,
     FileInterceptor('image', {
       storage: memoryStorage(), // Keep in memory, don't save to disk
       limits: {
@@ -79,6 +85,20 @@ export class CameraController {
         user.userId,
         localUri,
         language,
+      );
+
+      this.logger.log(
+        `Recognition response: ${JSON.stringify({
+          success: result.success,
+          identified: result.identified,
+          savedToCollection: result.savedToCollection,
+          artwork: result.artwork ? {
+            id: result.artwork.id,
+            title: result.artwork.title,
+            artist: result.artwork.artist,
+            period: result.artwork.period,
+          } : null,
+        })}`,
       );
 
       return result;

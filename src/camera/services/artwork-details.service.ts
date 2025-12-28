@@ -49,6 +49,13 @@ export class ArtworkDetailsService {
     try {
       const prompt = this.buildPrompt(request, language);
 
+      // 🔍 LOG PROMPT BEING SENT TO QWEN-FLASH
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('🤖 QWEN-FLASH PROMPT (artwork-details.service.ts)');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log(prompt);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
       const response = await this.qwenClient.chat.completions.create({
         model: this.qwenModel,
         messages: [
@@ -65,10 +72,6 @@ export class ArtworkDetailsService {
       if (!content) {
         throw new Error('Empty response from Qwen');
       }
-
-      this.logger.debug(
-        `Qwen response (length: ${content.length}): ${content.substring(0, 200)}...`,
-      );
 
       const parsedResponse = this.parseQwenResponse(content);
 

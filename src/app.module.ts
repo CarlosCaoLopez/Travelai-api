@@ -18,6 +18,7 @@ import { CameraModule } from './camera/camera.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { SyncModule } from './sync/sync.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { QuotaModule } from './quota/quota.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     WebhooksModule,
     SyncModule,
     NotificationsModule,
+    QuotaModule,
   ],
   controllers: [AppController],
   providers: [

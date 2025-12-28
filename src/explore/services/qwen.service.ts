@@ -53,6 +53,13 @@ export class QwenService {
 
     this.logger.log(`Generating description for: ${placeName} (${category})`);
 
+    // 🔍 LOG PROMPT BEING SENT TO QWEN-FLASH
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🤖 QWEN-FLASH PROMPT (qwen.service.ts)');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log(prompt);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
     try {
       const response = await this.qwenClient.chat.completions.create({
         model: this.qwenModel,

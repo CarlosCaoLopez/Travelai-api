@@ -27,6 +27,7 @@ import { DeleteAccountDto } from './users/dto/delete-account.dto';
 import type { DeleteAccountResponseDto } from './users/dto/delete-account-response.dto';
 import {
   ModerateThrottle,
+  RelaxedThrottle,
   StrictThrottle,
 } from '../common/decorators/throttle.decorator';
 
@@ -47,7 +48,7 @@ export class SyncController {
   }
 
   @Get('users/me')
-  @ModerateThrottle()
+  @RelaxedThrottle()
   @UseGuards(SupabaseAuthGuard)
   async getProfile(
     @CurrentUser() user: AuthenticatedUser,
@@ -56,7 +57,7 @@ export class SyncController {
   }
 
   @Patch('users/me')
-  @ModerateThrottle()
+  @RelaxedThrottle()
   @UseGuards(SupabaseAuthGuard)
   async updateProfile(
     @CurrentUser() user: AuthenticatedUser,
@@ -84,7 +85,7 @@ export class SyncController {
   }
 
   @Post('users/me/push-token')
-  @ModerateThrottle()
+  @RelaxedThrottle()
   @UseGuards(SupabaseAuthGuard)
   async registerPushToken(
     @CurrentUser() user: AuthenticatedUser,
@@ -94,7 +95,7 @@ export class SyncController {
   }
 
   @Delete('users/me/push-token')
-  @ModerateThrottle()
+  @RelaxedThrottle()
   @UseGuards(SupabaseAuthGuard)
   async deletePushToken(
     @CurrentUser() user: AuthenticatedUser,
@@ -105,7 +106,7 @@ export class SyncController {
   }
 
   @Get('users/me/notification-preferences')
-  @ModerateThrottle()
+  @RelaxedThrottle()
   @UseGuards(SupabaseAuthGuard)
   async getNotificationPreferences(
     @CurrentUser() user: AuthenticatedUser,
@@ -114,7 +115,7 @@ export class SyncController {
   }
 
   @Patch('users/me/notification-preferences')
-  @ModerateThrottle()
+  @RelaxedThrottle()
   @UseGuards(SupabaseAuthGuard)
   async updateNotificationPreferences(
     @CurrentUser() user: AuthenticatedUser,

@@ -4,14 +4,15 @@ import type {
   ArtworkResponseDto,
   CategoryObjectDto,
 } from './dto/artwork-response.dto';
+import { getMadridDateString } from '../common/utils/madrid-date.util';
 
 @Injectable()
 export class ArtworksService {
   private readonly logger = new Logger(ArtworksService.name);
 
-  // Cache for daily artwork recommendation
+  // Cache for daily artwork recommendation (Madrid timezone, changes at 20:00)
   private dailyRecommendationCache: {
-    date: string; // YYYY-MM-DD format
+    madridDate: string; // YYYY-MM-DD format in Madrid timezone (after 20:00 = next day)
     artworkId: string;
   } | null = null;
 
@@ -71,9 +72,15 @@ export class ArtworksService {
         throw new NotFoundException(`Artwork with id ${id} not found`);
       }
 
-      const translation = artwork.translations[0];
-      const countryTranslation = artwork.country.translations[0];
-      const categoryTranslation = artwork.category.translations[0];
+      const translation = artwork.translations.find(
+        (t) => t.language === language,
+      ) || artwork.translations[0];
+      const countryTranslation = artwork.country.translations.find(
+        (t) => t.language === language,
+      ) || artwork.country.translations[0];
+      const categoryTranslation = artwork.category.translations.find(
+        (t) => t.language === language,
+      ) || artwork.category.translations[0];
 
       const category: CategoryObjectDto = {
         id: artwork.category.id,
@@ -202,9 +209,15 @@ export class ArtworksService {
 
       // Map to response DTOs
       const results: ArtworkResponseDto[] = artworks.map((artwork) => {
-        const translation = artwork.translations[0];
-        const countryTranslation = artwork.country.translations[0];
-        const categoryTranslation = artwork.category.translations[0];
+        const translation = artwork.translations.find(
+          (t) => t.language === language,
+        ) || artwork.translations[0];
+        const countryTranslation = artwork.country.translations.find(
+          (t) => t.language === language,
+        ) || artwork.country.translations[0];
+        const categoryTranslation = artwork.category.translations.find(
+          (t) => t.language === language,
+        ) || artwork.category.translations[0];
 
         const category: CategoryObjectDto = {
           id: artwork.category.id,
@@ -255,8 +268,9 @@ export class ArtworksService {
 
   /**
    * Get daily artwork recommendation for the authenticated user.
-   * Returns the same artwork for all users on a given day.
-   * Cache is automatically invalidated when the date changes.
+   * Returns the same artwork for all users on a given day (Madrid timezone).
+   * The day changes at 20:00 Madrid time.
+   * Cache is automatically invalidated when the Madrid date changes.
    */
   async getDailyRecommendation(
     userId: string,
@@ -266,11 +280,12 @@ export class ArtworksService {
       `Getting daily recommendation for user: ${userId}, language: ${language}`,
     );
 
-    // Get current date in YYYY-MM-DD format
-    const today = new Date().toISOString().split('T')[0];
+    // Get current date in Madrid timezone (changes at 20:00)
+    const currentMadridDate = getMadridDateString();
+    this.logger.log(`Current Madrid date: ${currentMadridDate}`);
 
-    // Check if we have a valid cached recommendation for today
-    if (this.dailyRecommendationCache?.date === today) {
+    // Check if we have a valid cached recommendation for current Madrid date
+    if (this.dailyRecommendationCache?.madridDate === currentMadridDate) {
       this.logger.log(
         `Returning cached daily recommendation: ${this.dailyRecommendationCache.artworkId}`,
       );
@@ -281,21 +296,74 @@ export class ArtworksService {
       );
     }
 
-    // Generate a new recommendation
-    this.logger.log('Generating new daily recommendation');
-    const artwork = await this.generateRandomRecommendation(language);
+    // Cache miss or date changed - fetch from database
+    this.logger.log('Cache miss - fetching from database');
+    const artworkId = await this.getOrUpdateDailyRecommendation(
+      currentMadridDate,
+    );
 
-    // Cache the recommendation
+    // Update in-memory cache
     this.dailyRecommendationCache = {
-      date: today,
-      artworkId: artwork.id,
+      madridDate: currentMadridDate,
+      artworkId,
     };
 
     this.logger.log(
-      `Daily recommendation generated and cached: ${artwork.title} (${artwork.id})`,
+      `Daily recommendation loaded from DB and cached: ${artworkId}`,
     );
 
-    return artwork;
+    return this.getArtworkById(artworkId, language);
+  }
+
+  /**
+   * Get or update the daily recommendation from database.
+   * If the date matches current Madrid date, return existing artwork.
+   * If date is different, update with a new random artwork.
+   * This method always updates the same row (singleton pattern).
+   */
+  private async getOrUpdateDailyRecommendation(
+    madridDate: string,
+  ): Promise<string> {
+    // Try to get existing daily recommendation (should always exist after initial setup)
+    const existing = await this.prisma.dailyRecommendation.findFirst();
+
+    if (!existing) {
+      // Should not happen after initial setup, but handle gracefully
+      this.logger.warn('No daily recommendation found in DB - creating initial');
+      const artwork = await this.generateRandomRecommendation('es');
+      const created = await this.prisma.dailyRecommendation.create({
+        data: {
+          currentDate: madridDate,
+          artworkId: artwork.id,
+        },
+      });
+      return created.artworkId;
+    }
+
+    // Check if date matches
+    if (existing.currentDate === madridDate) {
+      this.logger.log(
+        `DB date matches (${madridDate}) - returning existing artwork: ${existing.artworkId}`,
+      );
+      return existing.artworkId;
+    }
+
+    // Date changed - update with new random artwork
+    this.logger.log(
+      `DB date changed (${existing.currentDate} -> ${madridDate}) - generating new artwork`,
+    );
+    const newArtwork = await this.generateRandomRecommendation('es');
+    const updated = await this.prisma.dailyRecommendation.update({
+      where: { id: existing.id },
+      data: {
+        currentDate: madridDate,
+        artworkId: newArtwork.id,
+        updatedAt: new Date(),
+      },
+    });
+
+    this.logger.log(`DB updated with new artwork: ${updated.artworkId}`);
+    return updated.artworkId;
   }
 
   /**
@@ -364,9 +432,15 @@ export class ArtworksService {
       }
 
       const artwork = artworks[0];
-      const translation = artwork.translations[0];
-      const countryTranslation = artwork.country.translations[0];
-      const categoryTranslation = artwork.category.translations[0];
+      const translation = artwork.translations.find(
+        (t) => t.language === language,
+      ) || artwork.translations[0];
+      const countryTranslation = artwork.country.translations.find(
+        (t) => t.language === language,
+      ) || artwork.country.translations[0];
+      const categoryTranslation = artwork.category.translations.find(
+        (t) => t.language === language,
+      ) || artwork.category.translations[0];
 
       const category: CategoryObjectDto = {
         id: artwork.category.id,
